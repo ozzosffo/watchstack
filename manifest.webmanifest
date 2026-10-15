@@ -1,0 +1,17 @@
+{
+  "name": "WATCHSTACK — 나만의 시청 리스트",
+  "short_name": "WATCHSTACK",
+  "description": "영화·드라마·애니메이션을 나만의 리스트로 관리하세요.",
+  "lang": "ko",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0c13",
+  "theme_color": "#0a0c13",
+  "orientation": "any",
+  "icons": [
+    {"src":"./assets/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./assets/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}

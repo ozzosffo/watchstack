@@ -40,10 +40,6 @@ let selectedId=null;
 let statusFilter='all';
 let posterCache=new Map();
 let posterObserver;
-const AI_ENDPOINT_KEY='watchstack_ai_endpoint_v1';
-const AI_SESSION_KEY='watchstack_ai_access';
-function aiEndpoint(){try{return localStorage.getItem(AI_ENDPOINT_KEY)||''}catch{return ''}}
-function aiAccess(){try{return sessionStorage.getItem(AI_SESSION_KEY)||''}catch{return ''}}
 function safeUrl(url){try{const v=new URL(String(url||''));return v.protocol==='https:'?v.href.slice(0,1000):''}catch{return ''}}
 let typeFilter='all';
 let searchQuery='';
@@ -66,15 +62,15 @@ function nav(){return `<aside class="sidebar ${sidebarOpen?'open':''}">
   <div class="side-break"></div>
   <div class="side-label">COLLECTIONS <span style="float:right">${db.collections.length}</span></div>
   <div class="collection-nav">${db.collections.map(c=>`<button class="side-col ${selectedId===c.id?'active':''}" data-action="select" data-cid="${esc(c.id)}"><span class="dot" style="background:${c.color}"></span><span class="cut">${esc(c.title)}</span><span class="mini-count">${count(c).all}</span></button>`).join('')}</div>
-  <button class="add-side" data-action="new-list">＋ 새 컬렉션 만들기</button><button class="add-side ai-side" data-action="ai-builder">✦ AI 리스트 만들기</button>
+  <button class="add-side" data-action="new-list">＋ 새 컬렉션 만들기</button>
   <div class="side-bottom"><div class="side-tip"><b>✦ 어떤 이야기도 기록하세요</b><p>영화 · 드라마 · 애니 · 기타 콘텐츠를 나만의 리스트로 관리할 수 있어요.</p></div>
     <div class="side-footer-actions"><button class="ghost-btn" data-action="settings">⚙ 설정 및 백업</button></div>
-    <div class="nav-footer">v1.1 · 데이터는 이 기기에 저장돼요</div>
+    <div class="nav-footer">v1.2 · 무료 · 이 기기에 자동 저장</div>
   </div></aside><div class="side-screen ${sidebarOpen?'open':''}" data-action="close-menu"></div>`}
 function topbar(){return `<div class="topline"><div class="mobile-header"><button class="menu-btn" data-action="menu" aria-label="메뉴 열기">☰</button><div class="brand"><div class="brand-mark">▣</div>WATCHSTACK</div></div><div class="desktop-breadcrumb breadcrumb">MY SPACE &nbsp;/&nbsp; <span>${selectedId?esc(getC()?.title||'목록'):'대시보드'}</span></div><div class="top-actions"><span class="pill">● &nbsp;이 기기에 자동 저장</span><button class="ghost-btn" data-action="settings" title="설정 및 백업">⚙ <span class="desktop-text">설정</span></button></div></div>`}
 function home(){
  const all=db.collections.reduce((a,c)=>{const n=count(c);a.total+=n.all;a.done+=n.done;return a},{total:0,done:0});
- return `<div class="home-hero"><div class="hero-glow">◈</div><div class="hero-content"><span class="lead-label">YOUR WATCH JOURNEY</span><h1 class="hero-title">보고 싶은 이야기,<br><em>놓치지 말고 기록해요.</em></h1><p class="lead-desc">영화부터 드라마, 애니메이션까지. 나만의 리스트를 만들고, 체크해서 기록해요.</p><button class="btn ai-hero" data-action="ai-builder">✦ AI로 시청 리스트 만들기</button></div></div>
+ return `<div class="home-hero"><div class="hero-glow">◈</div><div class="hero-content"><span class="lead-label">YOUR WATCH JOURNEY</span><h1 class="hero-title">보고 싶은 이야기,<br><em>놓치지 말고 기록해요.</em></h1><p class="lead-desc">영화부터 드라마, 애니메이션까지. 나만의 리스트를 만들고, 체크해서 기록해요.</p><button class="btn" data-action="new-list">＋ 나만의 시청 리스트 만들기</button></div></div>
  <div class="stats"><div class="stat-card"><span class="stat-label">전체 작품</span><span class="stat-number">${all.total}</span><span class="stat-extra">작품</span></div><div class="stat-card"><span class="stat-label">시청 완료</span><span class="stat-number" style="color:var(--green)">${all.done}</span><span class="stat-extra">작품</span></div><div class="stat-card"><span class="stat-label">남은 작품</span><span class="stat-number">${all.total-all.done}</span><span class="stat-extra">작품</span></div></div>
  <div class="section-head"><div><h2>내 컬렉션</h2><p>누르면 시청 리스트를 관리할 수 있어요</p></div><button class="btn" data-action="new-list">＋ 새 컬렉션</button></div>
  ${db.collections.length?`<div class="collection-grid">${db.collections.map(c=>{const n=count(c);return `<button class="collection-card" style="--cardcolor:${c.color}" data-action="select" data-cid="${esc(c.id)}"><div class="card-top"><span class="card-icon">${esc(c.icon)}</span><span class="card-arrow">↗</span></div><h3>${esc(c.title)}</h3><p>${esc(c.description)||'나만의 시청 목록'}</p><div class="mini-progress"><div class="mini-fill" style="width:${n.percent}%"></div></div><div class="card-meta"><span>${n.done} / ${n.all} 작품 완료</span><span>${n.percent}%</span></div></button>`}).join('')}</div>`:`<div class="empty-state"><span class="large-emoji">🍿</span>아직 컬렉션이 없어요.<br>첫 번째 시청 목록을 만들어보세요!</div>`}
@@ -85,7 +81,7 @@ function collectionPage(c){const n=count(c),visible=c.sections.reduce((a,s)=>a+s
  return `<div class="collection-hero" style="--collection-accent:${c.color}"><div class="collection-main-top"><div class="collection-bigicon">${esc(c.icon)}</div><div><div class="collection-tag">✧ CUSTOM COLLECTION</div><h1 class="collection-name">${esc(c.title)}</h1><p class="collection-sub">${esc(c.description)||'나만의 이야기를 정리하는 공간'}</p></div><div class="collection-head-right"><button class="ghost-btn" data-action="edit-list" data-cid="${esc(c.id)}">✎ 컬렉션 편집</button></div></div>
   <div class="collection-progress"><div class="track"><div class="fill" style="width:${n.percent}%"></div></div><span class="progress-text">${n.done} / ${n.all} 완료 · ${n.percent}%</span></div></div>
   <div class="toolbar"><div class="filters">${[['all','전체'],['plan','안 봄'],['done','봤음']].map(([v,t])=>`<button class="filter ${statusFilter===v?'active':''}" data-action="filter" data-filter="${v}">${t}</button>`).join('')}</div><div class="searchbox"><span>⌕</span><input id="searchbox" type="search" placeholder="작품 검색" value="${esc(searchQuery)}" aria-label="작품 검색"></div></div>
-  <div class="toolbar" style="margin-top:-7px"><div class="filters">${[['all','전체 유형'],...TYPES.map(t=>[t,t])].map(([v,t])=>`<button class="filter ${typeFilter===v?'active':''}" data-action="type-filter" data-type="${esc(v)}">${esc(t)}</button>`).join('')}</div><div class="form-row"><button class="ghost-btn" data-action="ai-builder">✦ AI 만들기</button><button class="ghost-btn" data-action="new-section">＋ 그룹 추가</button></div></div>
+  <div class="toolbar" style="margin-top:-7px"><div class="filters">${[['all','전체 유형'],...TYPES.map(t=>[t,t])].map(([v,t])=>`<button class="filter ${typeFilter===v?'active':''}" data-action="type-filter" data-type="${esc(v)}">${esc(t)}</button>`).join('')}</div><div class="form-row"><button class="ghost-btn" data-action="new-section">＋ 그룹 추가</button></div></div>
   <div class="section-list">${c.sections.map(g=>renderSection(c,g)).join('')}${(!visible&&(searchQuery||statusFilter!=='all'||typeFilter!=='all'))?`<div class="noresults">조건에 맞는 작품이 없어요. 필터를 바꿔 보세요.</div>`:''}</div>
   ${!c.sections.length?`<div class="empty-state"><span class="large-emoji">📚</span>그룹을 추가하고 작품을 넣어보세요.<br>페이즈, 시즌, 장르 등 원하는 방식으로 구분할 수 있어요.</div>`:''}
   <div class="collection-footer"><button class="btn" data-action="new-item-global">＋ 작품 추가하기</button><button class="btn secondary" data-action="edit-list">⚙ 목록 관리</button></div>
@@ -142,39 +138,13 @@ function itemDialog(c,g,item){if(!c.sections.length){sectionDialog(null);notify(
 function settingsDialog(){const n=db.collections.length;modal(`${topModal('설정 및 백업','시청 기록은 서버가 아닌 지금 사용하는 브라우저에 저장됩니다.')}
  <div class="backup-panel"><b>📦 내 데이터 보관하기</b><p>${n}개 컬렉션의 작품 목록, 시청 체크, 메모가 한 파일에 저장돼요. 다른 기기에서 가져올 수도 있습니다.</p><button class="btn" data-action="export-data">⬇ JSON 백업</button><button class="btn secondary" data-action="import-data">⬆ 백업 가져오기</button><input id="import-file" class="hidden" type="file" accept=".json,application/json"></div>
  <div class="backup-panel"><b>📱 아이패드에서 앱처럼 사용하기</b><p>웹사이트를 Safari에서 열고 <b>공유 ⤴ → 홈 화면에 추가</b>를 누르세요. 홈 화면 아이콘으로 실행할 수 있습니다. 설치형 앱(PWA)은 HTTPS 사이트에 배포한 뒤 사용 가능합니다.</p><button class="btn secondary" data-action="install-pwa" id="install-btn">앱 설치 방법 보기</button></div>
- <div class="backup-panel"><b>✦ AI 리스트 생성 연결</b><p>GitHub Pages에는 AI 비밀키를 넣을 수 없어요. 별도 AI 서버를 설정하면 사이트에서 바로 생성할 수 있고, 미설정 시 ChatGPT에서 만든 JSON을 가져올 수 있습니다.</p><label for="endpoint-setting">AI 서버 주소 (선택)</label><input id="endpoint-setting" class="field" type="url" placeholder="https://....workers.dev" value="${esc(aiEndpoint())}"><label for="access-setting">AI 연결 코드 (브라우저 세션에만 임시 보관)</label><input id="access-setting" class="field" type="password" autocomplete="off" placeholder="서버에서 설정한 접근 코드" value="${esc(aiAccess())}"><button class="btn secondary" data-action="save-endpoint">연결 설정 저장</button></div>
  <div class="backup-panel"><b>🦸 MCU 샘플 컬렉션</b><p>페이즈 1~6으로 나눈 필수 작품 23개가 들어 있어요. 샘플을 수정하거나 삭제해도 다른 목록에는 영향을 주지 않습니다.</p><button class="btn secondary" data-action="readd-mcu">MCU 샘플 하나 더 만들기</button></div>
  <div class="danger-zone"><b>기억해 주세요</b><p>로그인·서버 동기화는 제공하지 않아요. 브라우저 데이터 삭제, 사파리 저장 공간 정리, 다른 기기 사용 시 기록이 자동으로 이전되지 않으니 중요한 목록은 주기적으로 백업해 주세요.</p></div>
  <div class="modal-footer"><button class="btn secondary" data-action="close-modal">닫기</button></div>`);}
 function fileImport(file){if(!file)return;if(file.size>7*1024*1024){notify('7MB 이하의 JSON 백업만 가져올 수 있어요.');return}const reader=new FileReader();reader.onload=()=>{try{const incoming=normalize(JSON.parse(reader.result));if(!confirm(`현재 ${db.collections.length}개 컬렉션을 가져온 ${incoming.collections.length}개 컬렉션으로 교체합니다. 진행할까요?`))return;db=incoming;persist();closeModal();goHome();notify('백업을 성공적으로 복원했어요.');}catch(e){notify(e.message||'파일을 읽지 못했어요.')}};reader.onerror=()=>notify('파일을 불러오지 못했어요.');reader.readAsText(file,'utf-8')}
 function removeItem(sid,iid){const c=getC(),g=getG(c,sid),i=getI(c,sid,iid);if(!i)return;if(!confirm(`‘${i.title}’ 작품을 삭제할까요?`))return;g.items=g.items.filter(x=>x.id!==iid);persist();closeModal();render();notify('작품을 삭제했어요.')}
-function parseAICollection(raw){
- const obj=typeof raw==='string'?JSON.parse(raw):raw;
- const data=obj.collection||obj; if(!data||!Array.isArray(data.sections)||!data.sections.length)throw new Error('sections 배열이 있는 JSON이 필요해요.');
- const sections=data.sections.slice(0,40).map(g=>({id:uid(),title:clean(g.title,90)||'기본 목록',description:clean(g.description,160),items:(Array.isArray(g.items)?g.items:[]).slice(0,150).map(i=>typeof i==='string'?{title:i}:{...i}).map(i=>({id:uid(),title:clean(i.title,160)||'제목 없음',year:Number.isInteger(+i.year)&&+i.year>=1880&&+i.year<=2100?+i.year:null,type:TYPES.includes(i.type)?i.type:'영화',status:'plan',posterUrl:safeUrl(i.posterUrl),wikiTitle:clean(i.wikiTitle,160),note:clean(i.note,900)}))}));
- if(!sections.some(g=>g.items.length))throw new Error('작품 목록이 비어 있어요.');
- return {id:uid(),title:clean(data.title,90)||'AI 추천 시청 리스트',description:clean(data.description,350),icon:'🎬',color:PALETTE[db.collections.length%PALETTE.length],sections};
-}
-function importAIJSON(raw){try{const added=parseAICollection(raw);db.collections.push(added);persist();closeModal();selectList(added.id);notify('새 시청 리스트를 만들었어요!');}catch(e){notify('JSON 가져오기 실패: '+(e.message||'형식을 확인해 주세요.'))}}
-function aiPrompt(idea){return `영화/드라마/애니를 기록하는 앱 WATCHSTACK에 넣을 시청 리스트를 생성해 줘.
-요청: ${idea}
-한국어, 스포일러 없이, 공개 연도와 공식 시리즈/페이즈 분류를 가능한 한 정확히 확인해 줘. 영화나 드라마 전체를 한 작품으로 작성하고, 필수가 아닌 건 과감히 제외해 줘.
-JSON만 출력해 줘. 형식: {"title":"컬렉션 이름","description":"짧은 설명","sections":[{"title":"페이즈/시즌/그룹","description":"그룹 설명","items":[{"title":"작품 이름","type":"영화","year":2024,"wikiTitle":"나무위키에서 검색할 문서명"}]}]}. type은 영화,드라마,애니,기타 중 하나. 최종 시청 순서대로 정렬하고 마크다운 코드블록은 사용하지 마.`;}
-function aiDialog(){modal(`${topModal('✦ AI 시청 리스트 만들기','원하는 작품이나 감상 목표를 말해 주세요. 직접 생성하려면 AI 서버 연결이 필요합니다.')}
- <div class="form-field"><label for="ai-idea">어떤 리스트를 만들까요?</label><textarea id="ai-idea" rows="4" placeholder="예: 마블 둠스데이 보기 전 필수 작품만 MCU 페이즈별로, 스포일러 없이 정리해줘"></textarea></div>
- <div class="form-field"><label>AI 연결 상태</label><p class="input-hint" id="ai-state">${aiEndpoint()?'AI 서버 주소가 등록돼 있어요. 연결을 확인하고 생성합니다.':'아직 AI 서버가 연결되지 않았어요. 아래 ChatGPT 연동/JSON 가져오기를 사용할 수 있어요.'}</p></div>
- <div class="form-row ai-buttons"><button class="btn" data-action="generate-ai" ${aiEndpoint()?'':'disabled'}>✦ 사이트 안에서 AI 생성</button><button class="btn secondary" data-action="ai-copy-prompt">ChatGPT 요청 복사</button><a class="btn secondary" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT 열기 ↗</a></div>
- <div class="form-field"><label for="ai-json">ChatGPT가 만든 JSON 붙여넣기</label><textarea id="ai-json" rows="5" placeholder='{"title":"나만의 리스트","sections":[{"title":"시즌 1","items":[{"title":"작품명","type":"애니","year":2020}]}]}'></textarea><button class="btn secondary" data-action="ai-import-json">JSON으로 컬렉션 생성</button></div>
- <p class="input-hint">AI 추천에는 오류가 있을 수 있어요. 공식 공개 연도와 페이즈를 확인해 주세요. 나무위키 문서는 각 작품에서 열 수 있어요.</p>`);}
-async function generateAI(){const idea=clean(document.getElementById('ai-idea')?.value,1200);if(!idea){notify('어떤 리스트를 원하는지 적어 주세요.');return;}const endpoint=aiEndpoint();if(!endpoint)return notify('AI 서버를 먼저 연결해 주세요.');const btn=document.querySelector('[data-action="generate-ai"]');if(btn){btn.disabled=true;btn.textContent='AI가 리스트를 만드는 중…';}try{
- const res=await fetch(endpoint.replace(/\/$/,'')+'/generate',{method:'POST',headers:{'Content-Type':'application/json','X-Watchstack-Code':aiAccess()},body:JSON.stringify({prompt:idea})});const data=await res.json();if(!res.ok)throw new Error(data.error||'AI 서버 응답 오류');importAIJSON(data);
- }catch(e){notify('AI 생성 실패: '+(e.message||'네트워크 오류'));}finally{if(btn&&btn.isConnected){btn.disabled=false;btn.textContent='✦ 사이트 안에서 AI 생성';}}}
-function copyAIPrompt(){const idea=clean(document.getElementById('ai-idea')?.value,1200);if(!idea)return notify('원하는 리스트를 적어 주세요.');const prompt=aiPrompt(idea);const onCopied=()=>{notify('요청 복사 완료! ChatGPT 열기를 눌러 붙여넣고 JSON을 가져오세요.');};if(navigator.clipboard?.writeText)navigator.clipboard.writeText(prompt).then(onCopied).catch(()=>{const box=document.getElementById('ai-json');box.value=prompt;notify('아래 텍스트를 복사해서 ChatGPT에 붙여넣어 주세요.');});else{const box=document.getElementById('ai-json');box.value=prompt;notify('아래 텍스트를 복사해서 ChatGPT에 붙여넣어 주세요.');}}
 async function fetchPoster(title,year,type){const key=title+'|'+year+'|'+type;if(posterCache.has(key))return posterCache.get(key);posterCache.set(key,'');
- try{if(aiEndpoint()){
-   const url=aiEndpoint().replace(/\/$/,'')+'/poster?title='+encodeURIComponent(title)+'&year='+encodeURIComponent(year||'')+'&type='+encodeURIComponent(type);
-   const r=await fetch(url,{headers:{'X-Watchstack-Code':aiAccess()}});if(r.ok){const obj=await r.json();const src=safeUrl(obj.posterUrl);if(src){posterCache.set(key,src);return src}}
- }
+ try{
  // 자유 라이선스 이미지에 한해 위키백과 대표 썸네일을 보조로 사용합니다.
  const search=new URL('https://ko.wikipedia.org/w/api.php');Object.entries({action:'query',generator:'search',gsrsearch:title+' '+(year||''),gsrlimit:'1',prop:'pageimages',piprop:'thumbnail',pithumbsize:'160',pilicense:'free',format:'json',origin:'*'}).forEach(([k,v])=>search.searchParams.set(k,v));const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),6500);
  let response;try{response=await fetch(search,{signal:controller.signal});}finally{clearTimeout(timer)}if(!response.ok)return '';
@@ -189,11 +159,6 @@ function handleAction(btn,evt){const action=btn.dataset.action, cid=btn.dataset.
  if(action==='menu'){sidebarOpen=true;return render()}
  if(action==='close-menu'){sidebarOpen=false;return render()}
  if(action==='new-list')return listDialog(null);
- if(action==='ai-builder')return aiDialog();
- if(action==='ai-copy-prompt')return copyAIPrompt();
- if(action==='ai-import-json')return importAIJSON(document.getElementById('ai-json')?.value||'');
- if(action==='generate-ai')return generateAI();
- if(action==='save-endpoint'){const value=clean(document.getElementById('endpoint-setting')?.value,900);if(value&&!safeUrl(value))return notify('HTTPS 주소를 입력해 주세요.');if(value)localStorage.setItem(AI_ENDPOINT_KEY,value.replace(/\/$/,''));else localStorage.removeItem(AI_ENDPOINT_KEY);const access=clean(document.getElementById('access-setting')?.value,250);if(access)sessionStorage.setItem(AI_SESSION_KEY,access);else sessionStorage.removeItem(AI_SESSION_KEY);return notify('AI 연결 설정을 저장했어요.');}
  if(action==='edit-list')return c&&listDialog(c);
  if(action==='new-section')return c&&sectionDialog(null);
  if(action==='edit-section')return g&&sectionDialog(g);

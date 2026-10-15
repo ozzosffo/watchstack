@@ -1,4 +1,4 @@
-const CACHE = 'watchstack-v1-20261015';
+const CACHE = 'watchstack-v1.2-no-ai-20261015';
 const CORE = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './assets/icon-192.png', './assets/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));

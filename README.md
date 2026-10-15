@@ -52,3 +52,26 @@ https://namu.wiki/w/마블%20시네마틱%20유니버스
 ## 기술 스택
 
 바닐라 HTML/CSS/JavaScript, Web App Manifest, Service Worker. 빌드·패키지 설치 없이 사용 가능합니다.
+
+## v1.1 개선사항 — 시청 체크 + 표지 + AI 생성
+
+- 시청 상태는 단순 **안 봄 / 봤음 체크박스**만 지원합니다. 기존 `watching` 데이터는 미시청 상태로 변환됩니다.
+- MCU 기본 컬렉션 23편과 기존 시청 완료 2편을 유지합니다.
+- 작품별 **나무위키 문서** 바로가기: 작품명으로 연결하며, 다른 문서명인 경우 작품 편집에서 변경할 수 있습니다.
+- 표지 이미지는 **작품 편집 → 표지 이미지 URL**을 사용하거나 허용된 이미지 API에서 자동 표시합니다. 나무위키의 실제 표지를 무단 복제하거나 페이지를 자동 스크래핑하지 않습니다. 자동 표지를 못 찾으면 기존 문자 카드가 남습니다.
+- 기본 자동 이미지는 한국어 위키백과의 무료 이용 가능(`pilicense=free`) 대표 이미지 검색이며, 작품의 공식 영화 포스터가 아닐 수 있습니다. 정확한 포스터가 필요하면 아래 TMDB 연동을 이용하세요.
+- **✦ AI 리스트 만들기** 창에서 요청을 작성합니다. API 연결이 없는 경우 **ChatGPT 요청 복사 → ChatGPT 열기 → JSON 결과를 붙여넣어 가져오기**가 가능합니다. 별도 서버가 연결되면 직접 AI 생성 버튼을 쓸 수 있습니다.
+
+### 사이트 내 자동 AI 생성: 선택형 Cloudflare Worker
+
+정적 GitHub Pages는 OpenAI API 키를 안전하게 보관할 수 없어, 서버 연결 없이는 자동 생성 기능이 비활성화됩니다. 완전한 자동 생성은 `backend/worker.js`를 별도 서버리스 Worker로 배포한 뒤 사용합니다.
+
+1. Cloudflare Workers 프로젝트를 만든 다음 `backend/worker.js` 소스를 배포합니다. 모듈 형식 ES module Worker입니다.
+2. Worker **Secrets**에 `OPENAI_API_KEY`와 `AI_ACCESS_CODE`를 등록합니다. 키를 GitHub이나 브라우저 HTML/JavaScript에 쓰지 마세요.
+3. Worker 변수 `ALLOWED_ORIGIN`을 `https://ozzosffo.github.io`로 설정합니다. 맞춤 도메인을 쓰면 실제 사용자 웹사이트 Origin으로 변경합니다.
+4. 선택적으로 TMDB v3 API 키인 `TMDB_API_KEY`를 Worker secret으로 추가합니다. 이때 `/poster` 엔드포인트는 TMDB의 실제 영화/드라마 이미지가 있는 경우 그 URL을 반환합니다.
+5. WATCHSTACK 웹앱 **설정 및 백업**에서 Worker의 HTTPS 주소와 접근 코드를 넣습니다. 접근 코드는 현재 브라우저 세션에만 저장됩니다.
+
+**운영 주의:** `AI_ACCESS_CODE` 한 개를 공유하는 방식은 소규모 테스트용입니다. 누구나 접근 가능한 서비스로 운영하기 전에는 개별 인증, 요청 횟수 제한, 악용 방지, 사용 예산 제한 및 과금 모니터링이 필요합니다. OpenAI API 사용은 ChatGPT 구독과 별도의 비용이 발생할 수 있습니다.
+
+**포스터 출처:** TMDB 사용 시 [TMDB 브랜드 표시](https://developer.themoviedb.org/docs/faq)와 출처 표기 등 TMDB 정책을 따라야 합니다. WATCHSTACK은 TMDB API를 사용하지만 TMDB의 보증이나 승인을 받지 않은 서비스입니다. 작품별 나무위키 문서 링크는 참고 정보용이며, 자동 표지 이미지의 출처와 다릅니다.

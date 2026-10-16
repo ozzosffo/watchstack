@@ -1,0 +1,313 @@
+{
+  "version": 1,
+  "collections": [
+    {
+      "id": "legacy-mcu",
+      "title": "MCU 필수 시청 로드맵",
+      "description": "둠스데이 전까지 핵심 작품만 · 총 23편 · 스포일러 없음",
+      "icon": "🦸",
+      "color": "#a393ff",
+      "sections": [
+        {
+          "id": "legacy-phase-0",
+          "title": "페이즈 1",
+          "description": "인피니티 사가 · 2008–2012",
+          "items": [
+            {
+              "id": "legacy-item-0-0",
+              "title": "아이언맨",
+              "year": 2008,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": "이전 버전 메모 보존"
+            },
+            {
+              "id": "legacy-item-0-1",
+              "title": "토르: 천둥의 신",
+              "year": 2011,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-0-2",
+              "title": "퍼스트 어벤져",
+              "year": 2011,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-0-3",
+              "title": "어벤져스",
+              "year": 2012,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            }
+          ]
+        },
+        {
+          "id": "legacy-phase-1",
+          "title": "페이즈 2",
+          "description": "인피니티 사가 · 2013–2015",
+          "items": [
+            {
+              "id": "legacy-item-1-0",
+              "title": "캡틴 아메리카: 윈터 솔져",
+              "year": 2014,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-1-1",
+              "title": "가디언즈 오브 갤럭시",
+              "year": 2014,
+              "type": "영화",
+              "status": "done",
+              "posterUrl": "",
+              "wikiTitle": "가디언즈 오브 갤럭시(영화)",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-1-2",
+              "title": "어벤져스: 에이지 오브 울트론",
+              "year": 2015,
+              "type": "영화",
+              "status": "done",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            }
+          ]
+        },
+        {
+          "id": "legacy-phase-2",
+          "title": "페이즈 3",
+          "description": "인피니티 사가 · 2016–2019",
+          "items": [
+            {
+              "id": "legacy-item-2-0",
+              "title": "캡틴 아메리카: 시빌 워",
+              "year": 2016,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-2-1",
+              "title": "닥터 스트레인지",
+              "year": 2016,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-2-2",
+              "title": "토르: 라그나로크",
+              "year": 2017,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-2-3",
+              "title": "어벤져스: 인피니티 워",
+              "year": 2018,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-2-4",
+              "title": "앤트맨과 와스프",
+              "year": 2018,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-2-5",
+              "title": "어벤져스: 엔드게임",
+              "year": 2019,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            }
+          ]
+        },
+        {
+          "id": "legacy-phase-3",
+          "title": "페이즈 4",
+          "description": "멀티버스 사가 · 2021–2022",
+          "items": [
+            {
+              "id": "legacy-item-3-0",
+              "title": "완다비전",
+              "year": 2021,
+              "type": "드라마",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-3-1",
+              "title": "팔콘과 윈터 솔져",
+              "year": 2021,
+              "type": "드라마",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-3-2",
+              "title": "로키 시즌 1",
+              "year": 2021,
+              "type": "드라마",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-3-3",
+              "title": "닥터 스트레인지: 대혼돈의 멀티버스",
+              "year": 2022,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-3-4",
+              "title": "블랙 팬서: 와칸다 포에버",
+              "year": 2022,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            }
+          ]
+        },
+        {
+          "id": "legacy-phase-4",
+          "title": "페이즈 5",
+          "description": "멀티버스 사가 · 2023–2025",
+          "items": [
+            {
+              "id": "legacy-item-4-0",
+              "title": "로키 시즌 2",
+              "year": 2023,
+              "type": "드라마",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-4-1",
+              "title": "데드풀과 울버린",
+              "year": 2024,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-4-2",
+              "title": "캡틴 아메리카: 브레이브 뉴 월드",
+              "year": 2025,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            },
+            {
+              "id": "legacy-item-4-3",
+              "title": "썬더볼츠*",
+              "year": 2025,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            }
+          ]
+        },
+        {
+          "id": "legacy-phase-5",
+          "title": "페이즈 6",
+          "description": "멀티버스 사가 · 2025–",
+          "items": [
+            {
+              "id": "legacy-item-5-0",
+              "title": "판타스틱 4: 새로운 출발",
+              "year": 2025,
+              "type": "영화",
+              "status": "plan",
+              "posterUrl": "",
+              "wikiTitle": "",
+              "note": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "legacy-custom",
+      "title": "내 드라마",
+      "description": "개인 목록",
+      "icon": "📺",
+      "color": "#74cdbd",
+      "sections": [
+        {
+          "id": "legacy-season",
+          "title": "시즌 1",
+          "description": "",
+          "items": [
+            {
+              "id": "legacy-custom-item",
+              "title": "나의 작품",
+              "type": "드라마",
+              "year": 2025,
+              "status": "done",
+              "posterUrl": "https://example.com/poster.jpg",
+              "wikiTitle": "나의 작품",
+              "note": "한글\n줄바꿈",
+              "customField": "이 필드도 보존"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

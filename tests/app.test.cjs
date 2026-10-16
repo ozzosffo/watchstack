@@ -29,7 +29,18 @@ function start(t, raw, extra = {}, setup) {
   setup?.(w);
   w.eval(catalog); w.eval(source);
   t.after(() => { assert.deepEqual(errors.map(e => e.message), [], 'no uncaught DOM errors'); w.close(); });
-  const click = (selector, scope = d) => { const el = scope.querySelector(selector); assert.ok(el, selector); el.click(); return el; };
+  const click = (selector, scope = d) => {
+    let el = scope.querySelector(selector);
+    // Editing now lives inside work details instead of repeating a menu on every row.
+    if (!el && selector.startsWith('[data-action="edit-item"]')) {
+      const details = d.querySelector(selector.replace('edit-item', 'details'));
+      assert.ok(details, selector); details.click(); el = d.querySelector(selector);
+    }
+    assert.ok(el, selector);
+    const disclosure = el.closest('details');
+    if (disclosure && !disclosure.open) disclosure.querySelector('summary').click();
+    el.click(); return el;
+  };
   const open = () => click('[data-action="select"]');
   const saved = () => JSON.parse(w.localStorage.getItem(KEY));
   const submit = (values, selector = '#modal-root form') => {
@@ -41,7 +52,7 @@ function start(t, raw, extra = {}, setup) {
     f.dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
   };
   const input = (el, value) => { el.value = value; el.dispatchEvent(new w.InputEvent('input', { bubbles: true, data: value, isComposing: true })); };
-  const change = (id, value) => { const el = d.getElementById(id); el.value = value; el.dispatchEvent(new w.Event('change', { bubbles: true })); };
+  const change = (id, value) => { const el = d.getElementById(id); const disclosure = el.closest('details'); if (disclosure && !disclosure.open) disclosure.querySelector('summary').click(); el.value = value; el.dispatchEvent(new w.Event('change', { bubbles: true })); };
   const importFile = async data => {
     click('[data-action="settings"]');
     const fileInput = d.getElementById('import-file');

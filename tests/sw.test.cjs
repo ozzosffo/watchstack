@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 const scope = 'https://ozzosffo.github.io/watchstack/';
-const CURRENT = 'watchstack-v1.3.0-20261016';
+const CURRENT = 'watchstack-v1.4.0-20261016';
 function worker(online = true) {
   const listeners = {}, stores = new Map(), state = { skips: 0, claims: 0, online, requests: [] };
   const key = request => new URL(typeof request === 'string' ? request : request.url, scope).href;
@@ -47,7 +47,7 @@ function worker(online = true) {
 test('installation caches every versioned shell asset and waits for explicit update', async () => {
   const w = worker(); await w.dispatch('install');
   const keys = [...w.stores.get(CURRENT).keys()];
-  for (const file of ['index.html','app.js?v=1.3.0','catalog.js?v=1.3.0','styles.css?v=1.3.0','manifest.webmanifest','assets/icon-192.png','assets/icon-512.png']) {
+  for (const file of ['index.html','app.js?v=1.4.0','catalog.js?v=1.4.0','styles.css?v=1.4.0','manifest.webmanifest','assets/icon-192.png','assets/icon-512.png']) {
     assert.ok(keys.includes(scope + file), file);
     assert.ok(fs.existsSync(path.join(__dirname, '..', file.split('?')[0])), 'cached file exists');
   }
@@ -67,7 +67,7 @@ test('offline navigation and versioned assets use the cached shell', async () =>
   const w = worker(false); await w.dispatch('install');
   const navigation = await w.dispatch('fetch', { request: w.request('unseen-route', 'navigate') });
   assert.match(await navigation.text(), /shell/);
-  const script = await w.dispatch('fetch', { request: w.request('app.js?v=1.3.0') });
+  const script = await w.dispatch('fetch', { request: w.request('app.js?v=1.4.0') });
   assert.equal(await script.text(), 'script');
 });
 test('a missing offline script or image returns 503, never index HTML', async () => {
@@ -81,7 +81,7 @@ test('a missing offline script or image returns 503, never index HTML', async ()
 });
 test('live responses refresh the cache and remain available offline', async () => {
   const w = worker(); await w.dispatch('install');
-  const request = w.request('app.js?v=1.3.0');
+  const request = w.request('app.js?v=1.4.0');
   assert.equal(await (await w.dispatch('fetch', { request })).text(), 'network');
   w.state.online = false;
   assert.equal(await (await w.dispatch('fetch', { request })).text(), 'network');

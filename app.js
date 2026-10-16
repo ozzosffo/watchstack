@@ -197,46 +197,29 @@ function poster(i, className = '', eager = false) {
   const art = artwork(i);
   return `<span class="poster-cover ${className}" data-title="${esc(i.title)}" data-year="${i.year || ''}" data-type="${esc(i.type)}"><span class="poster-fallback" aria-hidden="true">${icon('film', 24)}<span>${esc(i.title)}</span></span>${art.url ? `<img src="${esc(art.url)}" alt="" loading="${eager ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer">` : ''}</span>`;
 }
-function nav() {
-  return `<aside class="sidebar" aria-label="주 메뉴">
-    <button class="brand" data-action="home" aria-label="WATCHSTACK 홈"><span class="brand-mark">${icon('stack', 24)}</span><span>WATCHSTACK<small>나만의 시청 기록</small></span></button>
-    <span class="side-label">나의 보관함</span>
-    <button class="navbtn ${!selectedId ? 'active' : ''}" data-action="home" ${!selectedId ? 'aria-current="page"' : ''}>${icon('home')} 내 컬렉션</button>
-    <div class="side-heading"><span class="side-label">컬렉션 <b>${db.collections.length}</b></span><button class="iconbtn" data-action="new-list" aria-label="새 컬렉션">${icon('plus', 18)}</button></div>
-    <nav class="collection-nav" aria-label="컬렉션 목록">${db.collections.map(c => `<button class="side-col ${selectedId === c.id ? 'active' : ''}" data-action="select" data-cid="${esc(c.id)}" ${selectedId === c.id ? 'aria-current="page"' : ''}><span class="dot" style="background:${c.color}"></span><span class="cut">${esc(c.title)}</span><span class="mini-count">${count(c).all}</span></button>`).join('')}</nav>
-    <button class="add-side" data-action="new-list">${icon('plus', 18)} 새 컬렉션 만들기</button>
-    <div class="side-bottom"><div class="side-tip">${icon('shield')}<b>나의 기록, 나의 공간.</b><p>회원가입 없이 무료로.<br>이 브라우저에 저장돼요.</p></div><button class="navbtn" data-action="settings">${icon('settings')} 설정 및 백업</button><span class="nav-footer">WATCHSTACK 1.3 · 무료 PWA</span></div>
-  </aside>`;
+
+function brandMark() {
+  return '<svg viewBox="0 0 40 38" width="38" height="36" fill="none" aria-hidden="true"><rect x="4" y="5" width="32" height="27" rx="10" fill="#E8EFD9" stroke="#45614D" stroke-width="1.8"/><circle cx="14" cy="16" r="1.7" fill="#45614D"/><circle cx="26" cy="16" r="1.7" fill="#45614D"/><path d="M16 22q4 4 8 0" stroke="#45614D" stroke-width="1.8" stroke-linecap="round"/><path d="M5 32h7m16 0h7" stroke="#45614D" stroke-width="1.8" stroke-linecap="round"/></svg>';
 }
 function topbar() {
-  return `<header class="topline"><button class="mobile-brand" data-action="home" aria-label="WATCHSTACK 홈"><span class="brand-mark">${icon('stack', 21)}</span>WATCHSTACK</button><div class="breadcrumb"><button data-action="home">내 컬렉션</button>${selectedId ? `<span>/</span><span class="cut">${esc(getC()?.title)}</span>` : ''}</div><div class="top-actions"><span class="save-status ${loadIssue ? 'error' : ''}"><i></i>${loadIssue ? '기록 보호 중' : '이 기기에 자동 저장'}</span><button class="iconbtn" data-action="settings" aria-label="설정 및 백업">${icon('settings')}</button></div></header>`;
+  return `<header class="topline"><button class="brand" data-action="home" aria-label="WATCHSTACK 홈">${brandMark()}<span>WATCHSTACK</span></button><button class="iconbtn" data-action="settings" aria-label="설정 및 백업">${icon('settings', 21)}</button></header>`;
 }
-function bottomNav() {
-  return `<nav class="bottom-nav" aria-label="빠른 메뉴"><button data-action="home" class="${!selectedId ? 'active' : ''}">${icon('home')}<span>내 컬렉션</span></button><button class="bottom-add" data-action="${selectedId ? 'new-item-global' : 'new-list'}">${icon('plus', 22)}<span>${selectedId ? '작품 추가' : '컬렉션 추가'}</span></button><button data-action="settings">${icon('shield')}<span>설정 및 백업</span></button></nav>`;
-}
-function findNext(c) {
-  for (const g of c.sections) { const i = g.items.find(i => i.status !== 'done'); if (i) return { c, g, i }; }
-}
+
+
 function home() {
-  const totals = db.collections.reduce((a, c) => { const n = count(c); a.all += n.all; a.done += n.done; return a; }, { all: 0, done: 0 });
-  const next = db.collections.map(findNext).find(Boolean);
-  const showcase = db.collections.flatMap(c => c.sections.flatMap(g => g.items)).filter(i => artwork(i).url).slice(0, 4);
-  return `<section class="home-hero"><div class="hero-copy"><span class="eyebrow">MY WATCHSTACK</span><h1>좋은 이야기를<br><em>차곡차곡.</em></h1><p>보고 싶은 작품을 모으고,<br>함께한 이야기는 체크해 두세요.</p><button class="btn" data-action="new-list">${icon('plus', 18)} 새 컬렉션 만들기</button></div><div class="poster-deck" aria-hidden="true">${showcase.length ? showcase.map((i, index) => `<div class="deck-card deck-${index}">${poster(i, '', true)}</div>`).join('') : `<div class="hero-art">${icon('stack', 110)}<span>YOUR NEXT STORY</span></div>`}<span class="deck-caption">영화 · 드라마 · 애니메이션</span></div></section>
-    <div class="stats" aria-label="전체 시청 현황"><div class="stat-card"><span>전체 작품</span><b>${totals.all}<small>편</small></b></div><div class="stat-card"><span><i class="status-dot"></i>봤다</span><b class="mint">${totals.done}<small>편</small></b></div><div class="stat-card"><span>아직 안 봤다</span><b>${totals.all - totals.done}<small>편</small></b></div></div>
-    ${next ? `<button class="next-card" data-action="resume" data-cid="${esc(next.c.id)}" data-sid="${esc(next.g.id)}" data-iid="${esc(next.i.id)}">${poster(next.i)}<span class="next-copy"><span class="eyebrow">다음에 볼 이야기</span><strong>${esc(next.i.title)}</strong><span class="next-meta">${esc(next.c.title)} <span>· ${esc(next.g.title)}</span></span></span><span class="next-arrow">${icon('arrow', 22)}</span></button>` : ''}
-    <div class="section-head"><div><span class="eyebrow">MY COLLECTIONS</span><h2>내 컬렉션 <span>${db.collections.length}</span></h2></div><button class="ghost-btn" data-action="new-list">${icon('plus', 18)} 새 컬렉션</button></div>
-    ${db.collections.length > 3 ? `<label class="searchbox collection-search">${icon('search', 18)}<input id="collection-search" type="search" placeholder="컬렉션 이름으로 검색" aria-label="컬렉션 검색" value="${esc(collectionQuery)}"></label>` : ''}
-    <div id="collection-cards">${collectionCards()}</div>
-    <p class="privacy-note">${icon('shield', 15)} 기록은 이 브라우저에 저장돼요. 다른 기기로 옮길 때는 백업해 주세요.</p>`;
+  return `<div class="page-heading"><div><h1>내 컬렉션<span class="heading-dot" aria-hidden="true"></span></h1><p>보고 싶은 작품을 모아두세요.</p></div><button class="btn" data-action="new-list">${icon('plus', 18)} 새 컬렉션</button></div>
+    ${db.collections.length > 3 ? `<label class="searchbox collection-search">${icon('search', 18)}<input id="collection-search" type="search" placeholder="컬렉션 검색" aria-label="컬렉션 검색" value="${esc(collectionQuery)}"></label>` : ''}
+    <div id="collection-cards">${collectionCards()}</div>`;
 }
 function collectionCards() {
   const collections = db.collections.filter(c => (c.title + ' ' + c.description).toLowerCase().includes(collectionQuery.toLowerCase()));
-  if (!collections.length) return `<div class="empty-state">${icon('stack', 38)}<h3>${collectionQuery ? '찾는 컬렉션이 없어요' : '첫 이야기를 담아볼까요?'}</h3><p>${collectionQuery ? '다른 이름으로 검색해 보세요.' : '영화, 드라마, 애니메이션을 자유롭게 모아보세요.'}</p><button class="btn secondary" data-action="${collectionQuery ? 'clear-collection-search' : 'new-list'}">${collectionQuery ? '검색 지우기' : '컬렉션 만들기'}</button></div>`;
+  if (!collections.length) return `<div class="empty-state">${icon('stack', 34)}<h3>${collectionQuery ? '찾는 컬렉션이 없어요' : '아직 컬렉션이 없어요'}</h3><p>${collectionQuery ? '다른 이름으로 검색해 보세요.' : '위의 새 컬렉션 버튼으로 시작해 보세요.'}</p>${collectionQuery ? '<button class="btn secondary" data-action="clear-collection-search">검색 지우기</button>' : ''}</div>`;
   return `<div class="collection-grid">${collections.map(c => {
-    const n = count(c), covers = c.sections.flatMap(g => g.items).filter(i => artwork(i).url).slice(0, 4);
-    return `<button class="collection-card" style="--cardcolor:${c.color}" data-action="select" data-cid="${esc(c.id)}"><span class="card-art">${covers.length ? `<span class="card-covers">${covers.map(i => poster(i)).join('')}</span>` : `<span class="card-large-icon">${esc(c.icon)}</span>`}<span class="card-badge">${esc(c.icon)}</span><span class="card-arrow">${icon('arrow', 18)}</span></span><span class="card-body"><strong>${esc(c.title)}</strong><span class="card-desc">${esc(c.description) || '나만의 시청 컬렉션'}</span><span class="card-meta"><span>${n.done}<span class="muted"> / ${n.all}편 봤다</span></span><b>${n.percent}%</b></span><span class="mini-progress"><span style="width:${n.percent}%"></span></span><span class="card-groups">${c.sections.length}개 그룹 <span>·</span> ${[...new Set(c.sections.flatMap(g => g.items.map(i => i.type)))].join(' · ') || '자유롭게 채워보세요'}</span></span></button>`;
-  }).join('')}<button class="new-card" data-action="new-list"><span>${icon('plus', 26)}</span><strong>새로운 이야기를 담아보세요</strong><small>나만의 컬렉션 만들기</small></button></div>`;
+    const n = count(c), cover = c.sections.flatMap(g => g.items).find(i => artwork(i).url);
+    return `<button class="collection-card" data-action="select" data-cid="${esc(c.id)}"><span class="card-tab"><span aria-hidden="true">${esc(c.icon)}</span><span>${c.sections.length}개 그룹</span></span><span class="card-content"><span class="card-cover">${cover ? poster(cover) : `<span class="empty-cover" aria-hidden="true">${esc(c.icon)}</span>`}</span><span class="card-copy"><strong>${esc(c.title)}</strong>${c.description ? `<span class="card-desc">${esc(c.description)}</span>` : ''}<span class="card-meta"><span class="folder-dot" style="background:${c.color}" aria-hidden="true"></span>${n.done} / ${n.all}편 봤다</span></span><span class="card-arrow" aria-hidden="true">${icon('arrow', 18)}</span></span></button>`;
+  }).join('')}</div>`;
 }
+
 function matches(i, g) {
   return (statusFilter === 'all' || i.status === statusFilter) && (typeFilter === 'all' || i.type === typeFilter) &&
     (!searchQuery || `${i.title} ${i.note} ${i.year || ''} ${g.title}`.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -244,30 +227,30 @@ function matches(i, g) {
 function hasFilters() { return !!searchQuery || statusFilter !== 'all' || typeFilter !== 'all' || sectionFilter !== 'all'; }
 function filteredSections(c) { return c.sections.filter(g => sectionFilter === 'all' || sectionFilter === g.id); }
 function visibleCount(c) { return filteredSections(c).reduce((n, g) => n + g.items.filter(i => matches(i, g)).length, 0); }
+
 function collectionPage(c) {
-  const n = count(c), next = findNext(c);
-  return `<button class="back-link" data-action="home">${icon('back', 16)} 내 컬렉션</button><section class="collection-hero" style="--collection-accent:${c.color}"><div class="collection-main-top"><span class="collection-bigicon">${esc(c.icon)}</span><div class="collection-heading"><span class="eyebrow">MY COLLECTION</span><h1>${esc(c.title)}</h1><p>${esc(c.description) || '보고 싶은 이야기를 나만의 순서로.'}</p></div><button class="ghost-btn" data-action="edit-list" aria-label="컬렉션 편집">${icon('edit', 17)}<span>편집</span></button></div><div class="collection-summary"><div class="summary-numbers"><strong>${n.done}<span> / ${n.all}편 봤다</span></strong><b>${n.percent}%</b></div><div class="track" role="progressbar" aria-label="시청 진행률" aria-valuenow="${n.percent}" aria-valuemin="0" aria-valuemax="100"><div style="width:${n.percent}%"></div></div><span class="progress-caption">${n.all ? n.all === n.done ? '모든 이야기를 함께했어요. 다음 컬렉션을 만들어볼까요?' : `다음 이야기까지, ${n.all - n.done}편이 기다려요.` : '첫 작품을 추가해 보세요.'}</span></div></section>
-    <div class="collection-tools"><div class="filters" role="group" aria-label="시청 여부 필터">${[['all','전체',n.all],['plan','안 봤다',n.all-n.done],['done','봤다',n.done]].map(([v, text, num]) => `<button class="filter ${statusFilter === v ? 'active' : ''}" data-action="filter" data-filter="${v}" aria-pressed="${statusFilter === v}">${text}<span>${num}</span></button>`).join('')}</div><div class="view-toggle" role="group" aria-label="보기 방식"><button data-action="view" data-view="list" class="${viewMode === 'list' ? 'active' : ''}" aria-label="목록으로 보기" aria-pressed="${viewMode === 'list'}">${icon('list', 18)}</button><button data-action="view" data-view="grid" class="${viewMode === 'grid' ? 'active' : ''}" aria-label="포스터로 보기" aria-pressed="${viewMode === 'grid'}">${icon('grid', 18)}</button></div></div>
-    <div class="search-tools"><label class="searchbox">${icon('search', 18)}<input id="searchbox" type="search" placeholder="작품, 메모, 그룹 검색" aria-label="작품 검색" value="${esc(searchQuery)}" autocomplete="off"></label><label class="selectbox"><span class="sr-only">작품 유형</span><select id="type-filter">${[['all','모든 유형'],...TYPES.map(t => [t,t])].map(([v,t]) => `<option value="${v}" ${typeFilter === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label><label class="selectbox group-select"><span class="sr-only">페이즈 또는 시즌</span><select id="section-filter"><option value="all">모든 그룹</option>${c.sections.map(g => `<option value="${esc(g.id)}" ${sectionFilter === g.id ? 'selected' : ''}>${esc(g.title)}</option>`).join('')}</select></label></div>
-    <div class="list-heading"><span id="result-count">${visibleCount(c)}편${hasFilters() ? ' 검색 결과' : '의 이야기'} <span>· 체크하면 시청 완료</span></span><div><button class="text-btn" data-action="expand-all">모두 펼치기</button><button class="text-btn" data-action="new-section">${icon('plus', 15)} 그룹 추가</button></div></div>
-    <div id="collection-results">${collectionResults(c)}</div>
-    <div class="collection-footer"><button class="btn" data-action="new-item-global">${icon('plus', 18)} 작품 추가</button><button class="btn secondary" data-action="new-section">${icon('plus', 18)} 그룹 추가</button></div>
-    ${next ? '' : n.all ? '<p class="privacy-note">차곡차곡 모은 이야기, 모두 봤어요.</p>' : ''}`;
+  const n = count(c);
+  return `<button class="back-link" data-action="home">${icon('back', 16)} 내 컬렉션</button><section class="collection-header"><div class="collection-main-top"><span class="collection-bigicon" aria-hidden="true">${esc(c.icon)}</span><div class="collection-heading"><h1>${esc(c.title)}</h1>${c.description ? `<p>${esc(c.description)}</p>` : ''}</div><button class="iconbtn" data-action="edit-list" aria-label="컬렉션 편집">${icon('more', 21)}</button></div><div class="collection-actions"><span class="collection-count"><b>${n.done}</b> / ${n.all}편 봤다</span><button class="btn" data-action="new-item-global">${icon('plus', 18)} 작품 추가</button></div></section>
+    <div class="collection-tools"><div class="filters" role="group" aria-label="시청 여부 필터">${[['all','전체'],['plan','안 봤다'],['done','봤다']].map(([v, text]) => `<button class="filter ${statusFilter === v ? 'active' : ''}" data-action="filter" data-filter="${v}" aria-pressed="${statusFilter === v}">${text}</button>`).join('')}</div><details class="more-tools"><summary>분류 · 보기 ${icon('chevron', 15)}</summary><div class="tools-popover"><label class="selectbox"><span>유형</span><select id="type-filter">${[['all','모든 유형'],...TYPES.map(t => [t,t])].map(([v,t]) => `<option value="${v}" ${typeFilter === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label><label class="selectbox"><span>그룹</span><select id="section-filter"><option value="all">모든 그룹</option>${c.sections.map(g => `<option value="${esc(g.id)}" ${sectionFilter === g.id ? 'selected' : ''}>${esc(g.title)}</option>`).join('')}</select></label><div class="view-setting"><span>보기</span><div class="view-toggle" role="group" aria-label="보기 방식"><button data-action="view" data-view="list" class="${viewMode === 'list' ? 'active' : ''}" aria-pressed="${viewMode === 'list'}">${icon('list', 16)} 목록</button><button data-action="view" data-view="grid" class="${viewMode === 'grid' ? 'active' : ''}" aria-pressed="${viewMode === 'grid'}">${icon('grid', 16)} 포스터</button></div></div></div></details></div>
+    <label class="searchbox">${icon('search', 18)}<input id="searchbox" type="search" placeholder="작품 검색" aria-label="작품 검색" value="${esc(searchQuery)}" autocomplete="off"></label>
+    <div class="list-heading"><span id="result-count" ${hasFilters() ? '' : 'hidden'}>검색 결과 ${visibleCount(c)}편</span><button class="text-btn" data-action="new-section">${icon('plus', 15)} 그룹 추가</button></div>
+    <div id="collection-results">${collectionResults(c)}</div>`;
 }
 function collectionResults(c) {
   const groups = filteredSections(c).filter(g => !hasFilters() || g.items.some(i => matches(i, g)));
-  if (!groups.length) return `<div class="empty-state">${icon(hasFilters() ? 'search' : 'film', 38)}<h3>${hasFilters() ? '조건에 맞는 작품이 없어요' : '이 컬렉션의 첫 이야기를 담아보세요'}</h3><p>${hasFilters() ? '검색어나 시청 여부, 그룹을 바꿔 보세요.' : '페이즈, 시즌, 작품별로 그룹을 만들 수 있어요.'}</p><button class="btn secondary" data-action="${hasFilters() ? 'clear-filters' : 'new-item-global'}">${hasFilters() ? '필터 초기화' : '작품 추가'}</button></div>`;
+  if (!groups.length) return `<div class="empty-state">${icon(hasFilters() ? 'search' : 'film', 34)}<h3>${hasFilters() ? '조건에 맞는 작품이 없어요' : '아직 작품이 없어요'}</h3><p>${hasFilters() ? '검색어나 필터를 바꿔 보세요.' : '작품 추가 버튼으로 목록을 채워보세요.'}</p>${hasFilters() ? '<button class="btn secondary" data-action="clear-filters">필터 초기화</button>' : ''}</div>`;
   return `<div class="section-list ${viewMode === 'grid' ? 'gallery-view' : ''}">${groups.map(g => renderSection(c, g)).join('')}</div>`;
 }
 function renderSection(c, g) {
   const n = countGroup(g), entries = g.items.filter(i => matches(i, g));
   const isCollapsed = collapsed.has(g.id);
-  return `<section class="phase-block ${isCollapsed ? 'collapsed' : ''}" aria-label="${esc(g.title)}"><div class="phase-top"><button class="phase-toggle" data-action="collapse" data-sid="${esc(g.id)}" aria-expanded="${!isCollapsed}" aria-controls="group-${esc(g.id)}">${icon('chevron', 18)}<span class="phase-main"><strong>${esc(g.title)}</strong><small>${esc(g.description) || '내가 정한 그룹'}</small></span><span class="phase-count"><b>${n.done}</b> / ${n.all}</span></button><button class="iconbtn" data-action="edit-section" data-sid="${esc(g.id)}" aria-label="${esc(g.title)} 그룹 편집">${icon('more')}</button></div><div class="phase-content" id="group-${esc(g.id)}" ${isCollapsed ? 'hidden' : ''}><div class="phase-items">${entries.map((i, index) => renderItem(c, g, i, g.items.indexOf(i) + 1)).join('')}</div>${!entries.length ? '<p class="noresults">아직 작품이 없어요. 첫 작품을 추가해 보세요.</p>' : ''}<button class="add-item-row" data-action="new-item" data-sid="${esc(g.id)}">${icon('plus', 16)} 이 그룹에 작품 추가</button></div></section>`;
+  return `<section class="phase-block ${isCollapsed ? 'collapsed' : ''}" aria-label="${esc(g.title)}"><div class="phase-top"><button class="phase-toggle" data-action="collapse" data-sid="${esc(g.id)}" aria-expanded="${!isCollapsed}" aria-controls="group-${esc(g.id)}">${icon('chevron', 18)}<span class="phase-main"><strong>${esc(g.title)}</strong>${g.description ? `<small>${esc(g.description)}</small>` : ''}</span><span class="phase-count">${n.done} / ${n.all}</span></button><button class="iconbtn" data-action="edit-section" data-sid="${esc(g.id)}" aria-label="${esc(g.title)} 그룹 편집">${icon('more')}</button></div><div class="phase-content" id="group-${esc(g.id)}" ${isCollapsed ? 'hidden' : ''}><div class="phase-items">${entries.map(i => renderItem(c, g, i)).join('')}</div>${!entries.length ? `<button class="add-item-row" data-action="new-item" data-sid="${esc(g.id)}">${icon('plus', 16)} 첫 작품 추가</button>` : ''}</div></section>`;
 }
-function renderItem(c, g, i, order) {
+function renderItem(c, g, i) {
   const done = i.status === 'done';
-  return `<article class="media-row ${done ? 'row-watched' : ''}" data-item="${esc(i.id)}"><label class="watch-control"><input type="checkbox" data-watch data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 봤다" ${done ? 'checked' : ''}><span class="watch-box" aria-hidden="true">${icon('check', 17)}</span><span class="sr-only">봤다</span></label><button class="poster-button" data-action="details" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 작품 정보">${poster(i)}</button><div class="media-detail"><span class="item-order">${String(order).padStart(2, '0')}</span><button class="media-title" data-action="details" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">${esc(i.title)}</button><div class="media-sub"><span>${esc(i.type)}</span>${i.year ? `<span class="sep">·</span><span>${i.year}</span>` : ''}<span class="watched-tag">${done ? '봤다' : '안 봤다'}</span></div>${i.note ? `<p class="media-note">${esc(i.note)}</p>` : ''}</div><button class="iconbtn item-menu" data-action="edit-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 편집">${icon('more')}</button></article>`;
+  return `<article class="media-row ${done ? 'row-watched' : ''}" data-item="${esc(i.id)}"><label class="watch-control"><input type="checkbox" data-watch data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 봤다" ${done ? 'checked' : ''}><span class="watch-box" aria-hidden="true">${icon('check', 17)}</span><span class="sr-only">봤다</span></label><button class="poster-button" data-action="details" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 작품 정보">${poster(i)}</button><div class="media-detail"><button class="media-title" data-action="details" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">${esc(i.title)}</button><div class="media-sub"><span>${esc(i.type)}</span>${i.year ? `<span class="sep">·</span><span>${i.year}</span>` : ''}</div>${i.note ? `<p class="media-note">${esc(i.note)}</p>` : ''}</div></article>`;
 }
+
 function captureFocus() {
   const el = document.activeElement;
   if (!el || el === document.body) return null;
@@ -282,13 +265,15 @@ function render() {
   const focus = captureFocus();
   if (selectedId && !getC()) selectedId = null;
   const recovery = loadIssue ? `<div class="recovery-banner" role="alert"><span>${esc(loadIssue)}</span><button class="ghost-btn" data-action="settings">복구 및 백업</button></div>` : '';
-  document.getElementById('app').innerHTML = `<div class="app-shell">${nav()}<main class="main" id="main-content">${topbar()}${recovery}${selectedId ? collectionPage(getC()) : home()}<footer class="page-footer"><span>WATCHSTACK</span><span>나만의 시청 기록 · 무료로, 차곡차곡.</span></footer></main>${bottomNav()}</div>`;
+  document.getElementById('app').innerHTML = `<div class="app-shell"><main class="main" id="main-content">${topbar()}${recovery}${selectedId ? collectionPage(getC()) : home()}</main></div>`;
   savePrefs(); observePosters(); restoreFocus(focus);
 }
 function renderResults() {
   const c = getC(); if (!c) return;
   document.getElementById('collection-results').innerHTML = collectionResults(c);
-  document.getElementById('result-count').innerHTML = `${visibleCount(c)}편${hasFilters() ? ' 검색 결과' : '의 이야기'} <span>· 체크하면 시청 완료</span>`;
+  const result = document.getElementById('result-count');
+  result.hidden = !hasFilters();
+  result.textContent = '검색 결과 ' + visibleCount(c) + '편';
   observePosters();
 }
 function resetFilters() { statusFilter = 'all'; typeFilter = 'all'; sectionFilter = 'all'; searchQuery = ''; collapsed.clear(); }
@@ -348,8 +333,10 @@ function itemDialog(c,g,item){if(!c || !c.sections.length){sectionDialog(null);n
  <div class="form-field"><label>작품 제목 *</label><input class="field" name="title" required maxlength="160" placeholder="예: 스파이더맨: 노 웨이 홈" value="${esc(i.title)}"></div>
  <div class="form-row"><div class="form-field"><label>유형</label><select name="type">${TYPES.map(t=>`<option value="${t}" ${i.type===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="form-field"><label>공개 연도</label><input class="field" type="number" inputmode="numeric" name="year" min="1880" max="2100" placeholder="예: 2025" value="${i.year??''}"></div></div>
  <div class="form-row"><div class="form-field"><label>넣을 그룹</label><select name="section">${c.sections.map(s=>`<option value="${esc(s.id)}" ${s.id===g?.id?'selected':''}>${esc(s.title)}</option>`).join('')}</select></div><div class="form-field check-field"><label><input type="checkbox" name="watched" value="yes" ${i.status==='done'?'checked':''}> 봤다</label></div></div>
+ <details class="form-extra"><summary>이미지와 문서 링크</summary><div>
  <div class="form-field"><label>표지 이미지 URL (선택)</label><input class="field" name="posterUrl" type="url" placeholder="https://... (이미지 주소)" value="${esc(i.posterUrl)}"><p class="input-hint">자동 이미지가 없는 경우 직접 지정할 수 있어요. 이미지 이용 권한을 확인해 주세요.</p></div>
  <div class="form-field"><label>나무위키 문서 제목 (선택)</label><input class="field" name="wikiTitle" maxlength="160" placeholder="비워두면 작품명으로 연결" value="${esc(i.wikiTitle)}"></div>
+ </div></details>
  <div class="form-field"><label>내 메모 (선택)</label><textarea name="note" maxlength="900" placeholder="기억할 내용, 기대 포인트 등">${esc(i.note)}</textarea></div>
  ${edit?`<div class="form-field"><label>목록 안에서 작품 순서</label><div class="form-row"><button type="button" class="btn secondary" data-action="move-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" data-dir="-1">↑ 위로 이동</button><button type="button" class="btn secondary" data-action="move-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" data-dir="1">↓ 아래로 이동</button></div></div>`:''}
  <div class="modal-footer">${edit?`<button type="button" class="btn danger delete" data-action="delete-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">삭제</button>`:''}<button class="btn secondary" type="button" data-action="close-modal">취소</button><button class="btn" type="submit">${edit?'저장하기':'작품 추가'}</button></div></form>`);
@@ -359,19 +346,20 @@ function detailsDialog(c, g, i) {
   const source = art.source || auto?.source;
   modal(`${topModal('작품 정보', esc(g.title))}
     <div class="details-layout"><div class="details-art">${poster(i, '', true)}${source ? `<a class="art-source" href="${esc(source)}" target="_blank" rel="noopener noreferrer">이미지 출처 ↗</a>` : ''}</div><div class="details-copy"><span class="eyebrow">${esc(i.type)} ${i.year ? '· ' + i.year : ''}</span><h3>${esc(i.title)}</h3><label class="detail-check"><input type="checkbox" data-watch data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 봤다" ${i.status === 'done' ? 'checked' : ''}> 봤다</label><a class="wiki-link" target="_blank" rel="noopener noreferrer" href="https://namu.wiki/w/${encodeURIComponent(i.wikiTitle || i.title)}">나무위키에서 정보 보기 ${icon('external', 14)}</a><p class="input-hint">외부 문서에는 스포일러가 있을 수 있어요.</p></div></div>
-    <div class="details-note"><span class="eyebrow">내 메모</span><p>${esc(i.note) || '아직 메모가 없어요. 기대되는 점이나 기억할 내용을 남겨보세요.'}</p></div><div class="modal-footer"><button class="btn secondary" data-action="close-modal">닫기</button><button class="btn" data-action="edit-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">${icon('edit', 17)} 작품 편집</button></div>`);
+    ${i.note ? `<div class="details-note"><span class="eyebrow">내 메모</span><p>${esc(i.note)}</p></div>` : ''}<div class="modal-footer"><button class="btn secondary" data-action="close-modal">닫기</button><button class="btn" data-action="edit-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">${icon('edit', 17)} 작품 편집</button></div>`);
 }
 function storageValue(key) { try { return localStorage.getItem(key); } catch { return null; } }
+
 function settingsDialog() {
   const totals = db.collections.reduce((sum, c) => sum + count(c).all, 0);
-  modal(`${topModal('설정 및 백업', '컬렉션과 시청 기록을 안전하게 보관하세요.')}
-    ${loadIssue ? `<div class="recovery-banner" role="alert">${esc(loadIssue)}</div><div class="backup-panel"><h3>읽기 전 원본 보관</h3><p>잘못된 데이터도 덮어쓰지 않았어요. 원본을 먼저 내려받아 보관할 수 있어요.</p><button class="btn secondary" data-action="export-original">저장된 원본 내려받기</button></div>` : ''}
-    <div class="backup-panel"><div class="panel-heading">${icon('shield')}<h3>내 기록 백업</h3><span>${db.collections.length}개 컬렉션 · ${totals}편</span></div><p>목록, 체크, 포스터 주소, 메모를 JSON 파일로 보관해요.<br>다른 기기로 옮길 때도 이 파일 하나면 돼요.</p><div class="backup-actions"><button class="btn" data-action="export-data">${icon('download', 17)} 백업 내려받기</button><button class="btn secondary" data-action="import-data">백업 가져오기</button></div><input id="import-file" class="hidden" type="file" accept=".json,application/json"><p class="input-hint">가져오기는 먼저 내용을 확인하고, 기존 목록에 추가할 수 있어요.</p></div>
-    ${storageValue(BACKUP_KEY) !== null || storageValue(RESTORE_KEY) !== null ? `<div class="backup-panel"><h3>자동 복구 사본</h3><p>업데이트 전 원본과 최근 삭제·교체 전 기록을 보관해요. 사본을 확인한 뒤 복원할 수 있어요.</p>${storageValue(BACKUP_KEY) !== null ? '<button class="btn secondary" data-action="recovery" data-key="upgrade">업데이트 전 사본 확인</button>' : ''}${storageValue(RESTORE_KEY) !== null ? '<button class="btn secondary" data-action="recovery" data-key="replace">삭제·교체 전 사본 확인</button>' : ''}</div>` : ''}
-    <div class="backup-panel"><h3>앱처럼 사용하기</h3><p>아이패드·아이폰 Safari에서 <b>공유 → 홈 화면에 추가</b>를 누르세요. 처음 연 뒤에는 오프라인에서도 목록을 확인하고 체크할 수 있어요.</p><button class="btn secondary" data-action="install-pwa">앱 설치 안내</button><p class="input-hint">새로 불러오는 포스터와 외부 문서는 인터넷 연결이 필요해요.</p></div>
-    <div class="backup-panel"><h3>MCU 필수 시청 로드맵</h3><p>기존과 같은 23편을 페이즈 1~6으로 담았어요. 현재 목록을 건드리지 않고 새 컬렉션으로 추가해요.</p><button class="btn secondary" data-action="readd-mcu">MCU 23편 새로 추가</button></div>
-    <p class="storage-explanation">회원가입·서버 동기화 없이 무료로 사용해요. 기록은 이 기기의 이 브라우저에 저장돼요. 브라우저 데이터를 지우기 전에는 꼭 백업해 주세요.</p><div class="modal-footer"><button class="btn secondary" data-action="close-modal">닫기</button></div>`);
+  modal(`${topModal('설정 및 백업', db.collections.length + '개 컬렉션 · ' + totals + '편')}
+    ${loadIssue ? `<div class="recovery-banner" role="alert">${esc(loadIssue)}</div><button class="btn secondary" data-action="export-original">저장된 원본 내려받기</button>` : ''}
+    <section class="backup-panel"><h3>내 기록 보관하기</h3><p>다른 기기로 옮기거나 브라우저 데이터를 지우기 전에 백업해 주세요.</p><div class="backup-actions"><button class="btn" data-action="export-data">${icon('download', 17)} 백업 내려받기</button><button class="btn secondary" data-action="import-data">백업 가져오기</button></div><input id="import-file" class="hidden" type="file" accept=".json,application/json"></section>
+    ${storageValue(BACKUP_KEY) !== null || storageValue(RESTORE_KEY) !== null ? `<details class="settings-extra"><summary>자동 복구 사본</summary><div><p class="input-hint">사본을 확인한 뒤 현재 목록에 추가하거나 복원할 수 있어요.</p>${storageValue(BACKUP_KEY) !== null ? '<button class="btn secondary" data-action="recovery" data-key="upgrade">업데이트 전 사본</button>' : ''}${storageValue(RESTORE_KEY) !== null ? '<button class="btn secondary" data-action="recovery" data-key="replace">삭제·교체 전 사본</button>' : ''}</div></details>` : ''}
+    <button class="settings-link" data-action="install-pwa">홈 화면에 앱 추가 ${icon('arrow', 17)}</button>
+    <p class="storage-explanation">기록은 이 기기의 이 브라우저에만 저장돼요. 다른 기기와 자동으로 동기화되지 않아요.</p>`);
 }
+
 function download(text, filename) {
   try {
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
@@ -460,16 +448,6 @@ function handleAction(btn, event) {
   const c = getC(), g = getG(c, sid), i = getI(c, sid, iid);
   if (action === 'home') return goHome();
   if (action === 'select') return selectList(cid);
-  if (action === 'resume') {
-    selectList(cid);
-    document.querySelectorAll('[data-item]').forEach(el => {
-      if (el.dataset.item === iid) {
-        el.scrollIntoView?.({ block: 'center', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-        el.classList.add('highlight'); el.querySelector('[data-watch]')?.focus({ preventScroll: true });
-      }
-    });
-    return;
-  }
   if (action === 'new-list') return listDialog(null);
   if (action === 'edit-list') return c && listDialog(c);
   if (action === 'new-section') return c && sectionDialog(null);
@@ -581,7 +559,7 @@ document.addEventListener('change', event => {
       if (document.querySelector('#modal-root .detail-check')) {
         const detail = document.querySelector('#modal-root [data-watch]'); if (detail) detail.checked = checked;
       }
-      restoreFocus(focus); notify(checked ? '봤다! 다음 이야기로 가볼까요?' : '안 봤다로 바꿨어요.', true);
+      restoreFocus(focus); notify(checked ? '봤다로 체크했어요.' : '안 봤다로 바꿨어요.', true);
     } else { target.checked = getI(getC(), target.dataset.sid, target.dataset.iid)?.status === 'done'; render(); }
   }
 });

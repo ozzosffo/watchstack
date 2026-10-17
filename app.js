@@ -126,6 +126,7 @@ const paths = {
   close: 'm6 6 12 12M6 18 18 6', download: 'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5',
   settings: 'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8ZM9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1Z',
   check: 'm5 12 4 4L19 6', external: 'M14 3h7v7m0-7L10 14M10 3H3v18h18v-7',
+  trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',
   back: 'm12 5-7 7 7 7M5 12h15', shield: 'M12 3 3 6v6c0 5 9 9 9 9s9-4 9-9V6ZM8 12l3 3 5-6',
   film: 'M4 3h16v18H4ZM8 3v18M16 3v18M4 8h4M4 16h4M16 8h4M16 16h4'
 };
@@ -217,7 +218,7 @@ function collectionCards() {
   if (!collections.length) return `<div class="empty-state">${icon('stack', 34)}<h3>${collectionQuery ? '찾는 컬렉션이 없어요' : '아직 컬렉션이 없어요'}</h3><p>${collectionQuery ? '다른 이름으로 검색해 보세요.' : '위의 새 컬렉션 버튼으로 시작해 보세요.'}</p>${collectionQuery ? '<button class="btn secondary" data-action="clear-collection-search">검색 지우기</button>' : ''}</div>`;
   return `<div class="collection-grid">${collections.map(c => {
     const n = count(c), cover = c.sections.flatMap(g => g.items).find(i => artwork(i).url);
-    return `<button class="collection-card" data-action="select" data-cid="${esc(c.id)}"><span class="card-tab"><span aria-hidden="true">${esc(c.icon)}</span><span>${c.sections.length}개 그룹</span></span><span class="card-content"><span class="card-cover">${cover ? poster(cover) : `<span class="empty-cover" aria-hidden="true">${esc(c.icon)}</span>`}</span><span class="card-copy"><strong>${esc(c.title)}</strong>${c.description ? `<span class="card-desc">${esc(c.description)}</span>` : ''}<span class="card-meta"><span class="folder-dot" style="background:${c.color}" aria-hidden="true"></span>${n.done} / ${n.all}편 봤다</span></span><span class="card-arrow" aria-hidden="true">${icon('arrow', 18)}</span></span></button>`;
+    return `<article class="collection-entry"><button class="collection-card" data-action="select" data-cid="${esc(c.id)}"><span class="card-tab"><span aria-hidden="true">${esc(c.icon)}</span><span>${c.sections.length}개 그룹</span></span><span class="card-content"><span class="card-cover">${cover ? poster(cover) : `<span class="empty-cover" aria-hidden="true">${esc(c.icon)}</span>`}</span><span class="card-copy"><strong>${esc(c.title)}</strong>${c.description ? `<span class="card-desc">${esc(c.description)}</span>` : ''}<span class="card-meta"><span class="folder-dot" style="background:${c.color}" aria-hidden="true"></span>${n.done} / ${n.all}편 봤다</span></span></span></button><button class="iconbtn collection-manage" data-action="manage-list" data-cid="${esc(c.id)}" aria-label="${esc(c.title)} 컬렉션 수정 또는 삭제" aria-haspopup="dialog" title="컬렉션 관리">${icon('more', 21)}</button></article>`;
   }).join('')}</div>`;
 }
 
@@ -231,7 +232,7 @@ function visibleCount(c) { return filteredSections(c).reduce((n, g) => n + g.ite
 
 function collectionPage(c) {
   const n = count(c);
-  return `<button class="back-link" data-action="home">${icon('back', 16)} 내 컬렉션</button><section class="collection-header"><div class="collection-main-top"><span class="collection-bigicon" aria-hidden="true">${esc(c.icon)}</span><div class="collection-heading"><h1>${esc(c.title)}</h1>${c.description ? `<p>${esc(c.description)}</p>` : ''}</div><button class="iconbtn" data-action="edit-list" aria-label="컬렉션 편집">${icon('more', 21)}</button></div><div class="collection-actions"><span class="collection-count"><b>${n.done}</b> / ${n.all}편 봤다</span><button class="btn" data-action="new-item-global">${icon('plus', 18)} 작품 추가</button></div></section>
+  return `<button class="back-link" data-action="home">${icon('back', 16)} 내 컬렉션</button><section class="collection-header"><div class="collection-main-top"><span class="collection-bigicon" aria-hidden="true">${esc(c.icon)}</span><div class="collection-heading"><h1>${esc(c.title)}</h1>${c.description ? `<p>${esc(c.description)}</p>` : ''}</div><button class="text-btn collection-manage-label" data-action="manage-list" data-cid="${esc(c.id)}" aria-label="컬렉션 수정 또는 삭제" aria-haspopup="dialog">관리 ${icon('more', 21)}</button></div><div class="collection-actions"><span class="collection-count"><b>${n.done}</b> / ${n.all}편 봤다</span><button class="btn" data-action="new-item-global">${icon('plus', 18)} 작품 추가</button></div></section>
     <div class="collection-tools"><div class="filters" role="group" aria-label="시청 여부 필터">${[['all','전체'],['plan','안 봤다'],['done','봤다']].map(([v, text]) => `<button class="filter ${statusFilter === v ? 'active' : ''}" data-action="filter" data-filter="${v}" aria-pressed="${statusFilter === v}">${text}</button>`).join('')}</div><details class="more-tools"><summary>분류 · 보기 ${icon('chevron', 15)}</summary><div class="tools-popover"><label class="selectbox"><span>유형</span><select id="type-filter">${[['all','모든 유형'],...TYPES.map(t => [t,t])].map(([v,t]) => `<option value="${v}" ${typeFilter === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label><label class="selectbox"><span>그룹</span><select id="section-filter"><option value="all">모든 그룹</option>${c.sections.map(g => `<option value="${esc(g.id)}" ${sectionFilter === g.id ? 'selected' : ''}>${esc(g.title)}</option>`).join('')}</select></label><div class="view-setting"><span>보기</span><div class="view-toggle" role="group" aria-label="보기 방식"><button data-action="view" data-view="list" class="${viewMode === 'list' ? 'active' : ''}" aria-pressed="${viewMode === 'list'}">${icon('list', 16)} 목록</button><button data-action="view" data-view="grid" class="${viewMode === 'grid' ? 'active' : ''}" aria-pressed="${viewMode === 'grid'}">${icon('grid', 16)} 포스터</button></div></div></div></details></div>
     <label class="searchbox">${icon('search', 18)}<input id="searchbox" type="search" placeholder="작품 검색" aria-label="작품 검색" value="${esc(searchQuery)}" autocomplete="off"></label>
     <div class="list-heading"><span id="result-count" ${hasFilters() ? '' : 'hidden'}>검색 결과 ${visibleCount(c)}편</span><button class="text-btn" data-action="new-section">${icon('plus', 15)} 그룹 추가</button></div>
@@ -249,7 +250,7 @@ function renderSection(c, g) {
 }
 function renderItem(c, g, i) {
   const done = i.status === 'done';
-  return `<article class="media-row ${done ? 'row-watched' : ''}" data-item="${esc(i.id)}"><label class="watch-control"><input type="checkbox" data-watch data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 봤다" ${done ? 'checked' : ''}><span class="watch-box" aria-hidden="true">${icon('check', 17)}</span><span class="sr-only">봤다</span></label><button class="poster-button" data-action="details" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 작품 정보">${poster(i)}</button><div class="media-detail"><button class="media-title" data-action="details" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">${esc(i.title)}</button><div class="media-sub"><span>${esc(i.type)}</span>${i.year ? `<span class="sep">·</span><span>${i.year}</span>` : ''}</div>${i.note ? `<p class="media-note">${esc(i.note)}</p>` : ''}</div></article>`;
+  return `<article class="media-row ${done ? 'row-watched' : ''}" data-item="${esc(i.id)}"><label class="watch-control"><input type="checkbox" data-watch data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 봤다" ${done ? 'checked' : ''}><span class="watch-box" aria-hidden="true">${icon('check', 17)}</span><span class="sr-only">봤다</span></label><button class="poster-button" data-action="details" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 작품 정보">${poster(i)}</button><div class="media-detail"><button class="media-title" data-action="details" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">${esc(i.title)}</button><div class="media-sub"><span>${esc(i.type)}</span>${i.year ? `<span class="sep">·</span><span>${i.year}</span>` : ''}</div>${i.note ? `<p class="media-note">${esc(i.note)}</p>` : ''}</div><button class="iconbtn work-manage" data-action="manage-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 수정 또는 삭제" aria-haspopup="dialog" title="작품 관리">${icon('more', 20)}</button></article>`;
 }
 
 function captureFocus() {
@@ -314,6 +315,18 @@ function closeModal() {
 }
 function topModal(title, sub) {
   return `<div class="modal-head"><div><h2 id="dialog-title">${title}</h2><p class="modal-intro">${sub}</p></div><button class="modal-close iconbtn" data-action="close-modal" aria-label="닫기">${icon('close')}</button></div>`;
+}
+
+function managementDialog(c, g, item) {
+  const work = !!item, title = work ? item.title : c.title;
+  const target = `data-cid="${esc(c.id)}"${work ? ` data-sid="${esc(g.id)}" data-iid="${esc(item.id)}"` : ''}`;
+  modal(`${topModal(work ? '작품 관리' : '컬렉션 관리', esc(title))}
+    <div class="management-actions">
+      <button class="management-option" data-action="${work ? 'edit-item' : 'edit-list'}" ${target}>${icon('edit', 20)}<span>${work ? '작품 수정' : '컬렉션 수정'}</span>${icon('arrow', 17)}</button>
+      <button class="management-option danger" data-action="${work ? 'delete-item' : 'delete-list'}" ${target}>${icon('trash', 20)}<span>${work ? '컬렉션에서 작품 삭제' : '컬렉션 삭제'}</span></button>
+    </div>
+    <p class="input-hint">${work ? '삭제하면 이 컬렉션의 해당 작품과 시청 기록이 함께 지워져요.' : '삭제하면 포함된 작품 ' + count(c).all + '편과 시청 기록이 함께 지워져요.'}</p>
+    <div class="modal-footer"><button class="btn secondary" data-action="close-modal">닫기</button></div>`);
 }
 
 function pickerMarkup(options) {
@@ -395,7 +408,7 @@ function detailsDialog(c, g, i) {
   const source = art.source || auto?.source;
   modal(`${topModal('작품 정보', esc(g.title))}
     <div class="details-layout"><div class="details-art">${poster(i, '', true)}${source ? `<a class="art-source" href="${esc(source)}" target="_blank" rel="noopener noreferrer">이미지 출처 ↗</a>` : ''}</div><div class="details-copy"><span class="eyebrow">${esc(i.type)} ${i.year ? '· ' + i.year : ''}</span><h3>${esc(i.title)}</h3><label class="detail-check"><input type="checkbox" data-watch data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 봤다" ${i.status === 'done' ? 'checked' : ''}> 봤다</label><a class="wiki-link" target="_blank" rel="noopener noreferrer" href="${esc(namuUrl(i))}">나무위키에서 정보 보기 ${icon('external', 14)}</a>${safeUrl(i.sourceUrl) ? `<a class="work-source" href="${esc(safeUrl(i.sourceUrl))}" target="_blank" rel="noopener noreferrer">정보 출처 · ${i.sourceProvider === 'TVmaze' ? 'TVmaze' : '위키백과'} ↗</a>` : ''}<p class="input-hint">외부 문서에는 스포일러가 있을 수 있어요.</p></div></div>
-    ${i.note ? `<div class="details-note"><span class="eyebrow">내 메모</span><p>${esc(i.note)}</p></div>` : ''}<div class="modal-footer"><button class="btn secondary" data-action="close-modal">닫기</button><button class="btn" data-action="edit-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">${icon('edit', 17)} 작품 편집</button></div>`);
+    ${i.note ? `<div class="details-note"><span class="eyebrow">내 메모</span><p>${esc(i.note)}</p></div>` : ''}<div class="modal-footer"><button class="btn danger delete" data-action="delete-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">삭제</button><button class="btn secondary" data-action="close-modal">닫기</button><button class="btn" data-action="edit-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">${icon('edit', 17)} 작품 수정</button></div>`);
 }
 function storageValue(key) { try { return localStorage.getItem(key); } catch { return null; } }
 
@@ -491,13 +504,22 @@ function observePosters() {
   }), { rootMargin: '120px' });
   posters.forEach(el => posterObserver.observe(el));
 }
-function afterSave(message) { closeModal(); render(); notify(message, true); }
+function afterSave(message) {
+  closeModal(); render();
+  if (document.activeElement === document.body) {
+    const heading = document.querySelector('.collection-heading h1, .page-heading h1');
+    heading?.setAttribute('tabindex', '-1'); heading?.focus({ preventScroll: true });
+  }
+  notify(message, true);
+}
 function handleAction(btn, event) {
   const { action, cid, sid, iid } = btn.dataset;
-  const c = getC(), g = getG(c, sid), i = getI(c, sid, iid);
+  const c = cid ? db.collections.find(collection => collection.id === cid) : getC(), g = getG(c, sid), i = getI(c, sid, iid);
   if (action === 'home') return goHome();
   if (action === 'select') return selectList(cid);
   if (action === 'new-list') return listDialog(null);
+  if (action === 'manage-list' && c) { btn.focus({ preventScroll: true }); return managementDialog(c); }
+  if (action === 'manage-item' && i) { btn.focus({ preventScroll: true }); return managementDialog(c, g, i); }
   if (action === 'edit-list') return c && listDialog(c);
   if (action === 'new-section') return c && sectionDialog(null);
   if (action === 'edit-section') return g && sectionDialog(g);

@@ -33,10 +33,10 @@ function start(t, raw, extra = {}, setup) {
   t.after(() => { assert.deepEqual(errors.map(e => e.message), [], 'no uncaught DOM errors'); w.close(); });
   const click = (selector, scope = d) => {
     let el = scope.querySelector(selector);
-    // Editing now lives inside work details instead of repeating a menu on every row.
-    if (!el && selector.startsWith('[data-action="edit-item"]')) {
-      const details = d.querySelector(selector.replace('edit-item', 'details'));
-      assert.ok(details, selector); details.click(); el = d.querySelector(selector);
+    // Follow the same management menu used from a work row or collection header.
+    if (!el && /^\[data-action="edit-(item|list)"\]/.test(selector)) {
+      const manage = d.querySelector(selector.replace('edit-', 'manage-'));
+      assert.ok(manage, selector); manage.click(); el = d.querySelector(selector);
     }
     assert.ok(el, selector);
     const disclosure = el.closest('details');
@@ -346,22 +346,82 @@ test('work and group reordering preserves all records', t => {
 });
 test('deletion has confirmation, a persistent recovery copy and a working undo', t => {
   const a = start(t, fixture); a.open();
-  a.click('[data-action="edit-item"]'); a.click('[data-action="delete-item"]');
+  a.click('[data-action="manage-item"]'); a.click('[data-action="delete-item"]');
   assert.equal(a.saved().collections[0].sections[0].items.length, 3);
   assert.equal(a.w.localStorage.getItem(RESTORE), fixture);
   a.click('[data-action="undo"]'); assert.deepEqual(a.saved(), JSON.parse(fixture));
 });
 test('deleting a whole collection can be undone', t => {
   const a = start(t, fixture); a.open();
-  a.click('[data-action="edit-list"]'); a.click('[data-action="delete-list"]');
+  a.click('[data-action="manage-list"]'); a.click('[data-action="delete-list"]');
   assert.equal(a.saved().collections.length, 1);
   a.click('[data-action="undo"]'); assert.deepEqual(a.saved(), JSON.parse(fixture));
 });
 test('deletion is canceled without a write when confirmation is declined', t => {
   const a = start(t, fixture); a.open(); a.w.confirm = () => false;
-  a.click('[data-action="edit-item"]'); a.click('[data-action="delete-item"]');
+  a.click('[data-action="manage-item"]'); a.click('[data-action="delete-item"]');
   assert.equal(a.w.localStorage.getItem(KEY), fixture);
-  assert.ok(a.d.querySelector('#modal-root form'));
+  assert.ok(a.d.querySelector('.management-actions'));
+});
+test('home-card management edits the requested collection without changing its items or opening it', t => {
+  const a = start(t, fixture), before = JSON.parse(fixture), target = before.collections[1];
+  const trigger = a.d.querySelector(`[data-action="manage-list"][data-cid="${target.id}"]`);
+  assert.equal(trigger.closest('button[data-action="select"]'), null, 'management is a separate touch target');
+  trigger.click();
+  assert.equal(a.d.querySelector('.collection-heading'), null);
+  assert.equal(a.d.querySelector('#dialog-title').textContent, '컬렉션 관리');
+  assert.equal(a.w.localStorage.getItem(KEY), fixture);
+  a.click('[data-action="edit-list"]');
+  a.submit({ title: '주말 애니 모음', description: '수정한 설명' });
+  target.title = '주말 애니 모음'; target.description = '수정한 설명';
+  assert.deepEqual(a.saved(), before);
+  assert.equal(a.d.querySelector('.collection-heading'), null);
+  const b = start(t, JSON.stringify(a.saved()));
+  assert.ok([...b.d.querySelectorAll('.card-copy strong')].some(title => title.textContent === target.title));
+});
+test('home-card deletion targets the chosen collection and keeps a deleted last collection deleted after reload', t => {
+  const a = start(t, fixture), before = JSON.parse(fixture);
+  a.click(`[data-action="manage-list"][data-cid="${before.collections[1].id}"]`);
+  a.click('[data-action="delete-list"]');
+  assert.deepEqual(a.saved().collections, [before.collections[0]]);
+  assert.equal(a.w.localStorage.getItem(RESTORE), fixture);
+  a.click('[data-action="manage-list"]'); a.click('[data-action="delete-list"]');
+  assert.equal(a.saved().collections.length, 0); assert.equal(a.d.querySelectorAll('.collection-card').length, 0);
+  const b = start(t, JSON.stringify(a.saved()));
+  assert.equal(b.d.querySelectorAll('.collection-card').length, 0, 'opening an empty library must not re-seed MCU');
+  a.click('[data-action="undo"]'); assert.deepEqual(a.saved().collections, [before.collections[0]]);
+});
+test('a filtered poster-card management menu edits and deletes only that work, preserving its watched state and identity', t => {
+  const a = start(t, fixture), expected = JSON.parse(fixture), item = expected.collections[0].sections[1].items[1];
+  a.open(); a.click('[data-view="grid"]'); a.input(a.d.querySelector('#searchbox'), item.title);
+  assert.equal(a.d.querySelectorAll('.work-manage').length, 1);
+  a.click(`[data-action="manage-item"][data-iid="${item.id}"]`);
+  assert.equal(a.d.querySelector('#dialog-title').textContent, '작품 관리');
+  assert.ok(a.d.querySelector('[data-action="delete-item"]'));
+  a.click('[data-action="edit-item"]'); a.submit({ year: 2015, note: '수정해 둔 메모' });
+  item.year = 2015; item.note = '수정해 둔 메모';
+  assert.deepEqual(a.saved(), expected);
+  assert.equal(item.status, 'done');
+  a.click(`[data-action="manage-item"][data-iid="${item.id}"]`);
+  let confirmation = ''; a.w.confirm = message => { confirmation = message; return true; };
+  a.click('[data-action="delete-item"]');
+  assert.ok(confirmation.includes(item.title));
+  expected.collections[0].sections[1].items = expected.collections[0].sections[1].items.filter(work => work.id !== item.id);
+  assert.deepEqual(a.saved(), expected);
+  assert.equal(a.d.querySelector(`[data-item="${item.id}"]`), null);
+  assert.equal(a.d.activeElement.tagName, 'H1', 'focus moves to the collection after its trigger is deleted');
+  a.click('[data-action="undo"]');
+  assert.equal(a.saved().collections[0].sections[1].items.find(work => work.id === item.id).note, '수정해 둔 메모');
+});
+test('a failed deletion snapshot leaves the management menu and all records intact', t => {
+  const a = start(t, fixture); a.open(); a.click('[data-action="manage-item"]');
+  const original = a.w.Storage.prototype.setItem;
+  a.w.Storage.prototype.setItem = function(key, value) { if (key === RESTORE) throw new a.w.DOMException('full', 'QuotaExceededError'); return original.call(this, key, value); };
+  a.click('[data-action="delete-item"]');
+  assert.equal(a.w.localStorage.getItem(KEY), fixture);
+  assert.ok(a.d.querySelector('.management-actions')); assert.equal(a.d.querySelectorAll('.media-row').length, 23);
+  assert.match(a.d.querySelector('#toast').textContent, /저장하지 못했어요/);
+  a.w.Storage.prototype.setItem = original;
 });
 test('a damaged JSON record is protected instead of being silently reseeded or overwritten', t => {
   const raw = '{"broken":'; const a = start(t, raw);
@@ -464,14 +524,14 @@ test('work details expose metadata and use only a native watched checkbox', t =>
 });
 test('modal traps Tab, makes the app inert and restores focus on Escape', t => {
   const a = start(t, fixture); a.open();
-  const button = a.d.querySelector('[data-action="edit-list"]'); button.focus(); button.click();
+  const button = a.d.querySelector('[data-action="manage-list"]'); button.click(); a.click('[data-action="edit-list"]');
   assert.equal(a.d.getElementById('app').inert, true);
   const all = [...a.d.querySelectorAll('.modal button:not(:disabled),.modal input:not([type="hidden"]),.modal select,.modal textarea,.modal a[href]')];
   all.at(-1).focus(); all.at(-1).dispatchEvent(new a.w.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
   assert.equal(a.d.activeElement, all[0]);
   a.d.dispatchEvent(new a.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(a.d.querySelector('.modal'), null); assert.equal(a.d.getElementById('app').inert, false);
-  assert.equal(a.d.activeElement.dataset.action, 'edit-list');
+  assert.equal(a.d.activeElement.dataset.action, 'manage-list');
 });
 test('titles, notes and poster URLs are safely rendered as text', t => {
   const object = JSON.parse(fixture), item = object.collections[0].sections[0].items[0];

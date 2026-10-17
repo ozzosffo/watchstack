@@ -1,6 +1,6 @@
 'use strict';
-const CACHE = 'watchstack-v1.5.0-20261017';
-const CORE = ['./', './index.html', './styles.css?v=1.5.0', './catalog.js?v=1.5.0', './app.js?v=1.5.0', './search.js?v=1.5.0', './picker.js?v=1.5.0',
+const CACHE = 'watchstack-v1.5.1-20261018';
+const CORE = ['./', './index.html', './styles.css?v=1.5.1', './catalog.js?v=1.5.1', './app.js?v=1.5.1', './search.js?v=1.5.1', './picker.js?v=1.5.1',
   './manifest.webmanifest', './assets/icon-192.png', './assets/icon-512.png'];
 const INDEX = new URL('./index.html', self.registration.scope).href;
 

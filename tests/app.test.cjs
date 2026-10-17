@@ -7,6 +7,8 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const catalog = fs.readFileSync(path.join(root, 'catalog.js'), 'utf8');
+const search = fs.readFileSync(path.join(root, 'search.js'), 'utf8');
+const picker = fs.readFileSync(path.join(root, 'picker.js'), 'utf8');
 const fixture = fs.readFileSync(path.join(__dirname, 'fixtures', 'v1-library.json'), 'utf8');
 const KEY = 'watchstack_library_v1';
 const BACKUP = KEY + '_pre_v13';
@@ -27,7 +29,7 @@ function start(t, raw, extra = {}, setup) {
   if (raw !== undefined) w.localStorage.setItem(KEY, raw);
   for (const [key, value] of Object.entries(extra)) w.localStorage.setItem(key, value);
   setup?.(w);
-  w.eval(catalog); w.eval(source);
+  w.eval(catalog); w.eval(search); w.eval(picker); w.eval(source);
   t.after(() => { assert.deepEqual(errors.map(e => e.message), [], 'no uncaught DOM errors'); w.close(); });
   const click = (selector, scope = d) => {
     let el = scope.querySelector(selector);
@@ -49,6 +51,7 @@ function start(t, raw, extra = {}, setup) {
       if (f.elements[name].type === 'checkbox') f.elements[name].checked = !!value;
       else f.elements[name].value = value;
     }
+    if (f.dataset.form === 'item' && !f.dataset.iid && !f.workPicker?.selected.length && values.title) f.querySelector('#work-manual').open = true;
     f.dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
   };
   const input = (el, value) => { el.value = value; el.dispatchEvent(new w.InputEvent('input', { bubbles: true, data: value, isComposing: true })); };
@@ -62,6 +65,31 @@ function start(t, raw, extra = {}, setup) {
   };
   return { w, d, click, open, saved, submit, input, change, importFile, diagnostics, requests: () => requests };
 }
+const lookupFilm = {
+  title: '인터스텔라', type: '영화', year: 2014,
+  posterUrl: 'https://upload.wikimedia.org/wikipedia/en/b/bc/Interstellar_film_poster.jpg',
+  sourceUrl: 'https://ko.wikipedia.org/wiki/인터스텔라', posterSourceUrl: 'https://en.wikipedia.org/wiki/Interstellar_(film)',
+  sourceProvider: '위키백과', catalogId: 'wikipedia-en:interstellarfilm', wikiTitle: '인터스텔라', wikiSearch: true
+};
+const lookupAnime = {
+  title: 'Re:제로부터 시작하는 이세계 생활 (애니메이션)', type: '애니', year: 2016,
+  posterUrl: 'https://static.tvmaze.com/uploads/images/medium_portrait/49/122624.jpg',
+  sourceUrl: 'https://www.tvmaze.com/shows/14459/rezero-starting-life-in-another-world',
+  posterSourceUrl: 'https://www.tvmaze.com/shows/14459/rezero-starting-life-in-another-world',
+  sourceProvider: 'TVmaze', sourceLicense: 'CC BY-SA', sourceLicenseUrl: 'https://www.tvmaze.com/api',
+  catalogId: 'tvmaze:14459', wikiTitle: 'Re:제로부터 시작하는 이세계 생활', wikiSearch: true
+};
+function mockLookup(a, works = [lookupFilm], search = async () => ({ works, offline: false })) {
+  a.w.WATCHSTACK_SEARCH = { ...a.w.WATCHSTACK_SEARCH, localWorks: () => works, search };
+  const timeout = a.w.setTimeout.bind(a.w);
+  a.w.setTimeout = (fn, delay, ...args) => timeout(fn, delay === 420 ? 0 : delay, ...args);
+}
+function typeWork(a, query) {
+  const input = a.d.querySelector('#work-query'); input.value = query;
+  input.dispatchEvent(new a.w.InputEvent('input', { bubbles: true, data: query })); return input;
+}
+function savePicker(a) { a.d.querySelector('#modal-root form').dispatchEvent(new a.w.Event('submit', { bubbles: true, cancelable: true })); }
+const settleLookup = () => new Promise(resolve => setTimeout(resolve, 25));
 test('fresh install keeps the exact 23-work MCU route, six phases and two existing checks', t => {
   const a = start(t); a.open();
   assert.equal(a.d.querySelectorAll('.media-row').length, 23);
@@ -70,6 +98,148 @@ test('fresh install keeps the exact 23-work MCU route, six phases and two existi
   assert.equal(a.d.querySelectorAll('.media-row img').length, 23);
   assert.equal(a.requests(), 0, 'curated MCU artwork needs no API call');
   assert.equal(a.w.localStorage.getItem(KEY), null, 'rendering must not write seed over anything');
+});
+test('picking a work fills the form and saves metadata only on confirmation, preserving existing history', t => {
+  const a = start(t, fixture); mockLookup(a); a.open(); a.click('[data-action="new-item-global"]');
+  const form = a.d.querySelector('#modal-root form');
+  typeWork(a, '인터스'); a.click('[data-work-result="0"]');
+  assert.equal(form.elements.title.value, lookupFilm.title);
+  assert.equal(form.elements.year.value, '2014'); assert.equal(form.elements.type.value, '영화');
+  assert.equal(form.elements.posterUrl.value, lookupFilm.posterUrl);
+  assert.match(a.d.querySelector('.picked-copy a').href, /^https:\/\/namu.wiki\/Search\?q=/);
+  assert.equal(a.w.localStorage.getItem(KEY), fixture, 'selecting alone must not write');
+  form.elements.watched.checked = true; form.elements.note.value = '다시 보고 싶은 영화'; savePicker(a);
+  const saved = a.saved(), section = saved.collections[0].sections[0], item = section.items.at(-1);
+  assert.equal(item.catalogId, lookupFilm.catalogId); assert.equal(item.status, 'done');
+  assert.equal(item.posterSourceUrl, lookupFilm.posterSourceUrl); assert.equal(item.wikiSearch, true);
+  const withoutNew = JSON.parse(JSON.stringify(saved)); withoutNew.collections[0].sections[0].items.pop();
+  assert.deepEqual(withoutNew, JSON.parse(fixture));
+  const b = start(t, JSON.stringify(saved)); b.open();
+  b.click(`[data-action="details"][data-iid="${item.id}"]`);
+  assert.equal(b.d.querySelector('.wiki-link').href, a.w.WATCHSTACK_SEARCH.namuUrl(item));
+  assert.equal(b.d.querySelector('.details-note p').textContent, '다시 보고 싶은 영화');
+});
+test('new collections accept several searched works, reject duplicate picks and preserve a custom name', t => {
+  const a = start(t, fixture); mockLookup(a, [lookupFilm, lookupAnime]);
+  a.click('[data-action="new-list"]');
+  typeWork(a, '인터스'); a.click('[data-work-result="0"]');
+  assert.equal(a.d.querySelector('#list-name').value, lookupFilm.title);
+  a.d.querySelector('#list-name').value = '주말에 볼 작품';
+  typeWork(a, '리제로'); a.click('[data-work-result="1"]');
+  typeWork(a, '인터스'); a.click('[data-work-result="0"]');
+  assert.equal(a.d.querySelector('form').workPicker.selected.length, 2);
+  assert.match(a.d.querySelector('#toast').textContent, /이미 담은/);
+  a.click('[data-work-remove="0"]');
+  typeWork(a, '인터스'); a.click('[data-work-result="0"]');
+  assert.equal(a.w.localStorage.getItem(KEY), fixture);
+  assert.equal(a.d.querySelector('.lookup-credit a').href, lookupAnime.sourceUrl);
+  savePicker(a);
+  const saved = a.saved(), added = saved.collections.at(-1);
+  assert.deepEqual(saved.collections.slice(0, -1), JSON.parse(fixture).collections);
+  assert.equal(added.title, '주말에 볼 작품');
+  assert.equal(added.sections[0].items.length, 2);
+  assert.ok(added.sections[0].items.every(item => item.status === 'plan' && item.id && item.catalogId));
+  const anime = added.sections[0].items.find(item => item.catalogId === lookupAnime.catalogId);
+  assert.equal(anime.sourceLicense, 'CC BY-SA'); assert.equal(anime.sourceProvider, 'TVmaze');
+});
+test('an existing collection rejects a duplicate catalog work without changing the original check', t => {
+  const data = JSON.parse(fixture); data.collections[0].sections[0].items.push({ ...lookupFilm, id: 'already-added', status: 'done', note: '' });
+  const raw = JSON.stringify(data), a = start(t, raw); mockLookup(a); a.open(); a.click('[data-action="new-item-global"]');
+  typeWork(a, '인터스'); a.click('[data-work-result="0"]'); savePicker(a);
+  assert.equal(a.w.localStorage.getItem(KEY), raw);
+  assert.match(a.d.querySelector('#toast').textContent, /이미 이 컬렉션/);
+  assert.ok(a.d.querySelector('[data-form="item"]'));
+});
+test('a title without a chosen result opens explicit manual entry before it can be added', t => {
+  const a = start(t, fixture); mockLookup(a, []); a.open(); a.click('[data-action="new-item-global"]');
+  typeWork(a, '나만의 작품'); savePicker(a);
+  assert.ok(a.d.querySelector('#work-manual').open); assert.equal(a.w.localStorage.getItem(KEY), fixture);
+  a.d.querySelector('form').elements.type.value = '애니'; savePicker(a);
+  const item = a.saved().collections[0].sections[0].items.at(-1);
+  assert.equal(item.title, '나만의 작품'); assert.equal(item.type, '애니'); assert.equal(item.catalogId, undefined);
+});
+test('changing a selected title clears only auto-filled values and allows a custom Namu document', t => {
+  const a = start(t, fixture); mockLookup(a); a.open(); a.click('[data-action="new-item-global"]');
+  typeWork(a, '인터스'); a.click('[data-work-result="0"]');
+  const form = a.d.querySelector('form'); form.elements.year.value = '2020';
+  typeWork(a, '내 기록');
+  assert.equal(form.workPicker.selected.length, 0); assert.equal(form.elements.posterUrl.value, '');
+  assert.equal(form.elements.year.value, '2020', 'manual edits survive clearing a choice');
+  typeWork(a, '인터스'); a.click('[data-work-result="0"]');
+  form.elements.wikiTitle.value = '인터스텔라(영화)'; savePicker(a);
+  const item = a.saved().collections[0].sections[0].items.at(-1);
+  assert.equal(item.wikiSearch, false);
+  a.click(`[data-action="details"][data-iid="${item.id}"]`);
+  assert.equal(decodeURIComponent(a.d.querySelector('.wiki-link').href), 'https://namu.wiki/w/인터스텔라(영화)');
+});
+test('autocomplete waits for Korean composition, supports keyboard selection and closes on Escape first', async t => {
+  const a = start(t, fixture); let requests = 0;
+  mockLookup(a, [lookupFilm, lookupAnime], async () => { requests++; return { works: [lookupFilm, lookupAnime] }; });
+  a.open(); a.click('[data-action="new-item-global"]');
+  const input = a.d.querySelector('#work-query'); input.dispatchEvent(new a.w.CompositionEvent('compositionstart', { bubbles: true }));
+  typeWork(a, '인터'); await settleLookup(); assert.equal(requests, 0);
+  input.dispatchEvent(new a.w.CompositionEvent('compositionend', { bubbles: true })); await settleLookup();
+  assert.equal(requests, 1); assert.equal(a.d.activeElement, input);
+  input.dispatchEvent(new a.w.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+  assert.equal(input.getAttribute('aria-activedescendant'), 'work-option-1');
+  input.dispatchEvent(new a.w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  assert.equal(input.value, lookupAnime.title); assert.equal(a.w.localStorage.getItem(KEY), fixture);
+  typeWork(a, '인터'); input.dispatchEvent(new a.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  assert.ok(a.d.querySelector('.modal')); assert.equal(input.getAttribute('aria-expanded'), 'false');
+  input.dispatchEvent(new a.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  assert.equal(a.d.querySelector('.modal'), null);
+});
+test('late responses from a superseded query cannot replace the current results', async t => {
+  const a = start(t, fixture), pending = [];
+  mockLookup(a, [], (query, options) => new Promise(resolve => pending.push({ query, options, resolve })));
+  a.open(); a.click('[data-action="new-item-global"]');
+  typeWork(a, '인터'); await settleLookup(); typeWork(a, '리제로'); await settleLookup();
+  assert.equal(pending[0].options.signal.aborted, true);
+  pending[1].resolve({ works: [lookupAnime] }); await settleLookup();
+  pending[0].resolve({ works: [lookupFilm] }); await settleLookup();
+  assert.match(a.d.querySelector('.work-option').textContent, /Re:제로/);
+  assert.equal(a.d.querySelectorAll('.work-option').length, 1);
+});
+test('a work chosen while loading receives its poster later without overwriting manual edits', async t => {
+  const a = start(t, fixture); let resolveSearch;
+  const early = { ...lookupFilm, posterUrl: '', posterSourceUrl: '', year: null };
+  mockLookup(a, [], (query, options) => { options.onProgress({ works: [early] }); return new Promise(resolve => { resolveSearch = resolve; }); });
+  a.open(); a.click('[data-action="new-item-global"]'); typeWork(a, '인터'); await settleLookup();
+  a.click('[data-work-result="0"]'); const form = a.d.querySelector('form'); form.elements.year.value = '2015';
+  resolveSearch({ works: [lookupFilm] }); await settleLookup();
+  assert.equal(form.elements.posterUrl.value, lookupFilm.posterUrl); assert.equal(form.elements.year.value, '2015');
+  assert.equal(form.workPicker.selected[0].posterSourceUrl, lookupFilm.posterSourceUrl);
+  savePicker(a); const item = a.saved().collections[0].sections[0].items.at(-1);
+  assert.equal(item.year, 2015); assert.equal(item.posterUrl, lookupFilm.posterUrl);
+});
+test('closing a picker aborts its request and prevents it from updating the next modal', async t => {
+  const a = start(t, fixture); let options, resolveSearch;
+  mockLookup(a, [], (query, value) => { options = value; return new Promise(resolve => { resolveSearch = resolve; }); });
+  a.open(); a.click('[data-action="new-item-global"]'); typeWork(a, '인터'); await settleLookup();
+  a.click('[data-action="close-modal"]'); assert.equal(options.signal.aborted, true);
+  a.click('[data-action="settings"]'); resolveSearch({ works: [lookupFilm] }); await settleLookup();
+  assert.equal(a.d.querySelector('#dialog-title').textContent, '설정 및 백업');
+  assert.equal(a.d.querySelector('.work-option'), null); assert.equal(a.w.localStorage.getItem(KEY), fixture);
+});
+test('dismissed suggestions stay closed when a late search response arrives', async t => {
+  const a = start(t, fixture); let options, resolveSearch;
+  mockLookup(a, [lookupFilm], (query, value) => { options = value; return new Promise(resolve => { resolveSearch = resolve; }); });
+  a.open(); a.click('[data-action="new-item-global"]'); const input = typeWork(a, '인터'); await settleLookup();
+  input.dispatchEvent(new a.w.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+  options.onProgress({ works: [lookupFilm] }); resolveSearch({ works: [lookupFilm] }); await settleLookup();
+  assert.equal(input.getAttribute('aria-expanded'), 'false'); assert.ok(a.d.querySelector('[role="listbox"]').hidden);
+});
+test('adding to a collection without groups is atomic even when storage fails', t => {
+  const data = JSON.parse(fixture); data.collections[0].sections = [];
+  const raw = JSON.stringify(data), a = start(t, raw); mockLookup(a); a.open(); a.click('[data-action="new-item-global"]');
+  typeWork(a, '인터'); a.click('[data-work-result="0"]');
+  const setItem = a.w.Storage.prototype.setItem;
+  a.w.Storage.prototype.setItem = function(key, value) { if (key === KEY) throw new a.w.DOMException('full', 'QuotaExceededError'); return setItem.call(this, key, value); };
+  savePicker(a); assert.equal(a.w.localStorage.getItem(KEY), raw); assert.ok(a.d.querySelector('[data-form="item"]'));
+  a.w.Storage.prototype.setItem = setItem; savePicker(a);
+  const groups = a.saved().collections[0].sections;
+  assert.equal(groups.length, 1); assert.equal(groups[0].items.length, 1);
+  assert.equal(groups[0].items[0].catalogId, lookupFilm.catalogId);
 });
 test('the previous version opens without writing or changing any existing ID, note or check', t => {
   const a = start(t, fixture); a.open();

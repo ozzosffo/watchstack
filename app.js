@@ -104,6 +104,7 @@ let collapsed = new Set();
 let beforeInstallPrompt = null;
 let toastTimer;
 let modalReturnFocus = null;
+let activeWorkPicker = null;
 let posterObserver;
 const posterCache = new Map();
 const posterQueue = [];
@@ -191,7 +192,7 @@ function undo() {
 function artwork(i) {
   const manual = safeUrl(i.posterUrl);
   const info = window.WATCHSTACK_CATALOG?.[i.title + '|' + i.year];
-  return { url: manual || safeUrl(info?.posterUrl), source: manual ? '' : safeUrl(info?.sourceUrl) };
+  return { url: manual || safeUrl(info?.posterUrl), source: safeUrl(i.posterSourceUrl) || (manual ? '' : safeUrl(info?.sourceUrl)) };
 }
 function poster(i, className = '', eager = false) {
   const art = artwork(i);
@@ -286,6 +287,7 @@ function selectList(id) {
 function goHome() { selectedId = null; resetFilters(); render(); window.scrollTo({ top: 0 }); }
 
 function modal(html) {
+  activeWorkPicker?.dispose(); activeWorkPicker = null;
   if (!document.querySelector('#modal-root .modal')) modalReturnFocus = captureFocus();
   document.getElementById('modal-root').innerHTML = `<div class="modal-backdrop" data-action="backdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title" tabindex="-1">${html}</section></div>`;
   document.getElementById('app').inert = true;
@@ -299,10 +301,11 @@ function modal(html) {
       label.htmlFor = input.id;
     }
   });
-  document.querySelector('#modal-root .field, #modal-root button, #modal-root .modal')?.focus({ preventScroll: true });
+  (document.querySelector('#modal-root form .field, #modal-root form select') || document.querySelector('#modal-root button, #modal-root .modal'))?.focus({ preventScroll: true });
   observePosters();
 }
 function closeModal() {
+  activeWorkPicker?.dispose(); activeWorkPicker = null;
   document.getElementById('modal-root').innerHTML = '';
   document.getElementById('app').inert = false;
   document.body.classList.remove('modal-open');
@@ -312,40 +315,86 @@ function closeModal() {
 function topModal(title, sub) {
   return `<div class="modal-head"><div><h2 id="dialog-title">${title}</h2><p class="modal-intro">${sub}</p></div><button class="modal-close iconbtn" data-action="close-modal" aria-label="닫기">${icon('close')}</button></div>`;
 }
-function listDialog(c){const edit=!!c;const current=c||{title:'',description:'',icon:'🎬',color:PALETTE[0]};
- modal(`${topModal(edit?'컬렉션 수정':'새 컬렉션 만들기','영화, 드라마, 애니 등을 원하는 방식으로 묶어보세요.')}
- <form data-form="list" data-cid="${edit?esc(c.id):''}">
- <div class="form-field"><label for="list-name">컬렉션 이름 *</label><input id="list-name" class="field" name="title" required maxlength="90" placeholder="예: 지브리 영화 정주행" value="${esc(current.title)}"></div>
- <div class="form-field"><label for="list-desc">설명 (선택)</label><textarea id="list-desc" name="description" maxlength="350" placeholder="이 컬렉션에 대해 간단히 적어보세요">${esc(current.description)}</textarea></div>
- <div class="form-field"><label>아이콘 선택</label><div class="emoji-select">${ICONS.map(i=>`<button type="button" class="emoji-option ${current.icon===i?'selected':''}" data-action="set-icon" data-icon="${esc(i)}">${i}</button>`).join('')}</div><input type="hidden" name="icon" value="${esc(current.icon)}"></div>
- <div class="form-field"><label>컬렉션 색상</label><div class="palette">${PALETTE.map(color=>`<button type="button" class="swatch ${current.color===color?'selected':''}" data-action="set-color" style="background:${color}" data-color="${color}" aria-label="${color}"></button>`).join('')}</div><input type="hidden" name="color" value="${current.color}"></div>
- <div class="modal-footer">${edit?`<button type="button" class="btn danger delete" data-action="delete-list" data-cid="${esc(c.id)}">삭제</button>`:''}<button type="button" class="btn secondary" data-action="close-modal">취소</button><button class="btn" type="submit">${edit?'저장하기':'컬렉션 만들기'}</button></div></form>`);
+
+function pickerMarkup(options) {
+  return window.WATCHSTACK_PICKER?.markup(options) || (options?.multiple ? '' : `<div class="form-field"><label for="work-query">작품 제목 *</label><input id="work-query" class="field" name="title" required maxlength="160" value="${esc(options?.title || '')}"></div>`);
+}
+function namuUrl(work) {
+  return window.WATCHSTACK_SEARCH?.namuUrl(work) || (work.wikiSearch ? 'https://namu.wiki/Search?q=' + encodeURIComponent(work.title) : 'https://namu.wiki/w/' + encodeURIComponent(work.wikiTitle || work.title));
+}
+function workMetadata(work, fields = work) {
+  return { catalogId: clean(work.catalogId, 300), sourceUrl: safeUrl(work.sourceUrl),
+    posterSourceUrl: fields.posterUrl === work.posterUrl ? safeUrl(work.posterSourceUrl) : '',
+    sourceProvider: work.sourceProvider === 'TVmaze' ? 'TVmaze' : '위키백과',
+    sourceLicense: clean(work.sourceLicense, 90), sourceLicenseUrl: safeUrl(work.sourceLicenseUrl),
+    wikiSearch: !!work.wikiSearch && clean(fields.wikiTitle, 160) === clean(work.wikiTitle, 160) };
+}
+function workToItem(work) {
+  return { id: uid(), title: clean(work.title, 160), type: TYPES.includes(work.type) ? work.type : '기타',
+    year: Number.isInteger(+work.year) && +work.year >= 1880 && +work.year <= 2100 ? +work.year : null,
+    status: 'plan', posterUrl: safeUrl(work.posterUrl), wikiTitle: clean(work.wikiTitle, 160), note: '', ...workMetadata(work) };
+}
+function listDialog(c) {
+  const edit = !!c, current = c || { title: '', description: '', icon: '🎬', color: PALETTE[0] };
+  modal(`${topModal(edit ? '컬렉션 수정' : '새 컬렉션 만들기', edit ? '이름과 모양을 바꿀 수 있어요.' : '이름을 정하고 원하는 작품을 검색해서 담아보세요.')}
+    <form data-form="list" data-cid="${edit ? esc(c.id) : ''}">
+      <div class="form-field"><label for="list-name">컬렉션 이름 *</label><input id="list-name" class="field" name="title" required maxlength="90" placeholder="예: 주말에 볼 영화" value="${esc(current.title)}"></div>
+      ${edit ? '' : pickerMarkup({ multiple: true })}
+      <div class="form-field"><label for="list-desc">설명 (선택)</label><textarea id="list-desc" name="description" maxlength="350" placeholder="짧은 설명을 남겨보세요">${esc(current.description)}</textarea></div>
+      <div class="form-field"><label>아이콘 선택</label><div class="emoji-select">${ICONS.map(i => `<button type="button" class="emoji-option ${current.icon === i ? 'selected' : ''}" data-action="set-icon" data-icon="${esc(i)}" aria-pressed="${current.icon === i}">${i}</button>`).join('')}</div><input type="hidden" name="icon" value="${esc(current.icon)}"></div>
+      <div class="form-field"><label>컬렉션 색상</label><div class="palette">${PALETTE.map(color => `<button type="button" class="swatch ${current.color === color ? 'selected' : ''}" data-action="set-color" style="background:${color}" data-color="${color}" aria-label="${color}" aria-pressed="${current.color === color}"></button>`).join('')}</div><input type="hidden" name="color" value="${current.color}"></div>
+      <div class="modal-footer">${edit ? `<button type="button" class="btn danger delete" data-action="delete-list" data-cid="${esc(c.id)}">삭제</button>` : ''}<button type="button" class="btn secondary" data-action="close-modal">취소</button><button class="btn" type="submit">${edit ? '저장하기' : '컬렉션 만들기'}</button></div>
+    </form>`);
+  if (!edit && window.WATCHSTACK_PICKER) {
+    const form = document.querySelector('#modal-root form');
+    activeWorkPicker = window.WATCHSTACK_PICKER.mount(form, { multiple: true, notify, onPick(work) {
+      if (!clean(form.elements.title.value)) form.elements.title.value = clean(work.title, 90);
+    } });
+  }
 }
 function sectionDialog(g){const edit=!!g;modal(`${topModal(edit?'그룹 편집':'새 그룹 추가','그룹으로 페이즈, 시즌, 장르, 시리즈 등을 구분할 수 있어요.')}
  <form data-form="section" data-sid="${edit?esc(g.id):''}"><div class="form-field"><label>그룹 이름 *</label><input class="field" name="title" maxlength="90" required placeholder="예: 시즌 1 / 페이즈 1 / 극장판" value="${esc(g?.title||'')}"></div>
  <div class="form-field"><label>부제목 (선택)</label><input class="field" name="description" maxlength="160" placeholder="예: 2021 ~ 2022" value="${esc(g?.description||'')}"></div>
  ${edit?`<div class="form-field"><label>목록에서 그룹 위치</label><div class="form-row"><button type="button" class="btn secondary" data-action="move-section" data-sid="${esc(g.id)}" data-dir="-1">↑ 위로 이동</button><button type="button" class="btn secondary" data-action="move-section" data-sid="${esc(g.id)}" data-dir="1">↓ 아래로 이동</button></div></div>`:''}
  <div class="modal-footer">${edit?`<button type="button" class="btn danger delete" data-action="delete-section" data-sid="${esc(g.id)}">그룹 삭제</button>`:''}<button class="btn secondary" type="button" data-action="close-modal">취소</button><button class="btn" type="submit">${edit?'저장하기':'추가하기'}</button></div></form>`);}
-function itemDialog(c,g,item){if(!c || !c.sections.length){sectionDialog(null);notify('작품을 추가하려면 먼저 그룹을 만들어 주세요.');return;}
- const edit=!!item;const i=item||{title:'',type:'영화',year:'',status:'plan',note:'',posterUrl:'',wikiTitle:''};
- modal(`${topModal(edit?'작품 편집':'작품 추가','제목과 그룹만 정해도 바로 기록할 수 있어요.')}
- <form data-form="item" data-iid="${edit?esc(i.id):''}" data-old-sid="${edit?esc(g.id):''}">
- <div class="form-field"><label>작품 제목 *</label><input class="field" name="title" required maxlength="160" placeholder="예: 스파이더맨: 노 웨이 홈" value="${esc(i.title)}"></div>
- <div class="form-row"><div class="form-field"><label>유형</label><select name="type">${TYPES.map(t=>`<option value="${t}" ${i.type===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="form-field"><label>공개 연도</label><input class="field" type="number" inputmode="numeric" name="year" min="1880" max="2100" placeholder="예: 2025" value="${i.year??''}"></div></div>
- <div class="form-row"><div class="form-field"><label>넣을 그룹</label><select name="section">${c.sections.map(s=>`<option value="${esc(s.id)}" ${s.id===g?.id?'selected':''}>${esc(s.title)}</option>`).join('')}</select></div><div class="form-field check-field"><label><input type="checkbox" name="watched" value="yes" ${i.status==='done'?'checked':''}> 봤다</label></div></div>
- <details class="form-extra"><summary>이미지와 문서 링크</summary><div>
- <div class="form-field"><label>표지 이미지 URL (선택)</label><input class="field" name="posterUrl" type="url" placeholder="https://... (이미지 주소)" value="${esc(i.posterUrl)}"><p class="input-hint">자동 이미지가 없는 경우 직접 지정할 수 있어요. 이미지 이용 권한을 확인해 주세요.</p></div>
- <div class="form-field"><label>나무위키 문서 제목 (선택)</label><input class="field" name="wikiTitle" maxlength="160" placeholder="비워두면 작품명으로 연결" value="${esc(i.wikiTitle)}"></div>
- </div></details>
- <div class="form-field"><label>내 메모 (선택)</label><textarea name="note" maxlength="900" placeholder="기억할 내용, 기대 포인트 등">${esc(i.note)}</textarea></div>
- ${edit?`<div class="form-field"><label>목록 안에서 작품 순서</label><div class="form-row"><button type="button" class="btn secondary" data-action="move-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" data-dir="-1">↑ 위로 이동</button><button type="button" class="btn secondary" data-action="move-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" data-dir="1">↓ 아래로 이동</button></div></div>`:''}
- <div class="modal-footer">${edit?`<button type="button" class="btn danger delete" data-action="delete-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">삭제</button>`:''}<button class="btn secondary" type="button" data-action="close-modal">취소</button><button class="btn" type="submit">${edit?'저장하기':'작품 추가'}</button></div></form>`);
+
+function itemDialog(c, g, item) {
+  if (!c) return;
+  const edit = !!item, i = item || { title: '', type: '영화', year: '', status: 'plan', note: '', posterUrl: '', wikiTitle: '' };
+  modal(`${topModal(edit ? '작품 편집' : '작품 추가', '제목을 검색하고 작품을 선택하면 포스터와 정보가 자동으로 채워져요.')}
+    <form data-form="item" data-iid="${edit ? esc(i.id) : ''}" data-old-sid="${edit ? esc(g.id) : ''}">
+      ${pickerMarkup({ title: i.title })}
+      <div class="form-row"><div class="form-field"><label>넣을 그룹</label><select name="section">${c.sections.length ? c.sections.map(section => `<option value="${esc(section.id)}" ${section.id === g?.id ? 'selected' : ''}>${esc(section.title)}</option>`).join('') : '<option value="__default__">기본 목록</option>'}</select></div><div class="form-field check-field"><label><input type="checkbox" name="watched" value="yes" ${i.status === 'done' ? 'checked' : ''}> 봤다</label></div></div>
+      <details class="form-extra" id="work-manual" ${edit || !window.WATCHSTACK_PICKER ? 'open' : ''}><summary>직접 입력 · 정보 수정</summary><div>
+        <div class="form-row"><div class="form-field"><label>유형</label><select name="type">${TYPES.map(type => `<option value="${type}" ${i.type === type ? 'selected' : ''}>${type}</option>`).join('')}</select></div><div class="form-field"><label>공개 연도</label><input class="field" type="number" inputmode="numeric" name="year" min="1880" max="2100" placeholder="예: 2025" value="${i.year ?? ''}"></div></div>
+        <div class="form-field"><label>포스터 주소 (선택)</label><input class="field" name="posterUrl" type="url" placeholder="https://..." value="${esc(i.posterUrl)}"></div>
+        <div class="form-field"><label>나무위키 문서 제목 (선택)</label><input class="field" name="wikiTitle" maxlength="160" placeholder="직접 지정하면 해당 문서로 연결해요" value="${esc(i.wikiTitle)}"></div>
+      </div></details>
+      <div class="form-field"><label>내 메모 (선택)</label><textarea name="note" maxlength="900" placeholder="기억할 내용을 남겨보세요">${esc(i.note)}</textarea></div>
+      ${edit ? `<div class="form-field"><label>목록 안에서 작품 순서</label><div class="form-row"><button type="button" class="btn secondary" data-action="move-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" data-dir="-1">↑ 위로 이동</button><button type="button" class="btn secondary" data-action="move-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" data-dir="1">↓ 아래로 이동</button></div></div>` : ''}
+      <div class="modal-footer">${edit ? `<button type="button" class="btn danger delete" data-action="delete-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">삭제</button>` : ''}<button class="btn secondary" type="button" data-action="close-modal">취소</button><button class="btn" type="submit">${edit ? '저장하기' : '작품 추가'}</button></div>
+    </form>`);
+  if (window.WATCHSTACK_PICKER) {
+    const form = document.querySelector('#modal-root form');
+    activeWorkPicker = window.WATCHSTACK_PICKER.mount(form, { initial: i.catalogId ? [i] : [], notify,
+      onPick(work) {
+        for (const name of ['type', 'year', 'posterUrl', 'wikiTitle']) form.elements[name].value = work[name] ?? '';
+      },
+      onEnrich(previous, work) {
+        for (const name of ['type', 'year', 'posterUrl', 'wikiTitle']) if (form.elements[name].value === String(previous[name] ?? '')) form.elements[name].value = work[name] ?? '';
+      },
+      onClear(work) {
+        const defaults = { type: '영화', year: '', posterUrl: '', wikiTitle: '' };
+        for (const [name, fallback] of Object.entries(defaults)) if (form.elements[name].value === String(work[name] ?? '')) form.elements[name].value = fallback;
+      }
+    });
+  }
 }
 function detailsDialog(c, g, i) {
   const art = artwork(i), auto = posterCache.get(i.title + '|' + i.year + '|' + i.type);
   const source = art.source || auto?.source;
   modal(`${topModal('작품 정보', esc(g.title))}
-    <div class="details-layout"><div class="details-art">${poster(i, '', true)}${source ? `<a class="art-source" href="${esc(source)}" target="_blank" rel="noopener noreferrer">이미지 출처 ↗</a>` : ''}</div><div class="details-copy"><span class="eyebrow">${esc(i.type)} ${i.year ? '· ' + i.year : ''}</span><h3>${esc(i.title)}</h3><label class="detail-check"><input type="checkbox" data-watch data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 봤다" ${i.status === 'done' ? 'checked' : ''}> 봤다</label><a class="wiki-link" target="_blank" rel="noopener noreferrer" href="https://namu.wiki/w/${encodeURIComponent(i.wikiTitle || i.title)}">나무위키에서 정보 보기 ${icon('external', 14)}</a><p class="input-hint">외부 문서에는 스포일러가 있을 수 있어요.</p></div></div>
+    <div class="details-layout"><div class="details-art">${poster(i, '', true)}${source ? `<a class="art-source" href="${esc(source)}" target="_blank" rel="noopener noreferrer">이미지 출처 ↗</a>` : ''}</div><div class="details-copy"><span class="eyebrow">${esc(i.type)} ${i.year ? '· ' + i.year : ''}</span><h3>${esc(i.title)}</h3><label class="detail-check"><input type="checkbox" data-watch data-sid="${esc(g.id)}" data-iid="${esc(i.id)}" aria-label="${esc(i.title)} 봤다" ${i.status === 'done' ? 'checked' : ''}> 봤다</label><a class="wiki-link" target="_blank" rel="noopener noreferrer" href="${esc(namuUrl(i))}">나무위키에서 정보 보기 ${icon('external', 14)}</a>${safeUrl(i.sourceUrl) ? `<a class="work-source" href="${esc(safeUrl(i.sourceUrl))}" target="_blank" rel="noopener noreferrer">정보 출처 · ${i.sourceProvider === 'TVmaze' ? 'TVmaze' : '위키백과'} ↗</a>` : ''}<p class="input-hint">외부 문서에는 스포일러가 있을 수 있어요.</p></div></div>
     ${i.note ? `<div class="details-note"><span class="eyebrow">내 메모</span><p>${esc(i.note)}</p></div>` : ''}<div class="modal-footer"><button class="btn secondary" data-action="close-modal">닫기</button><button class="btn" data-action="edit-item" data-sid="${esc(g.id)}" data-iid="${esc(i.id)}">${icon('edit', 17)} 작품 편집</button></div>`);
 }
 function storageValue(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -452,7 +501,7 @@ function handleAction(btn, event) {
   if (action === 'edit-list') return c && listDialog(c);
   if (action === 'new-section') return c && sectionDialog(null);
   if (action === 'edit-section') return g && sectionDialog(g);
-  if (action === 'new-item' || action === 'new-item-global') return c && itemDialog(c, g || c.sections[0], null);
+  if (action === 'new-item' || action === 'new-item-global') return c && itemDialog(c, g || getG(c, sectionFilter) || c.sections[0], null);
   if (action === 'edit-item') return i && itemDialog(c, g, i);
   if (action === 'details') return i && detailsDialog(c, g, i);
   if (action === 'settings') return settingsDialog();
@@ -567,6 +616,7 @@ document.addEventListener('input', event => {
   if (event.target.id === 'searchbox') { searchQuery = event.target.value; collapsed.clear(); renderResults(); }
   if (event.target.id === 'collection-search') { collectionQuery = event.target.value; document.getElementById('collection-cards').innerHTML = collectionCards(); observePosters(); }
 });
+document.addEventListener('invalid', event => { const details = event.target.closest('details'); if (details) details.open = true; }, true);
 document.addEventListener('submit', event => {
   const form = event.target.closest('form[data-form]'); if (!form) return;
   event.preventDefault();
@@ -574,6 +624,18 @@ document.addEventListener('submit', event => {
   if (Number(form.dataset.revision) !== revision) { notify('다른 창에서 기록이 바뀌었어요. 편집 창을 다시 열어 주세요.'); return; }
   const data = Object.fromEntries(new FormData(form).entries());
   if (['list','section','item'].includes(form.dataset.form) && !clean(data.title)) { notify('공백 대신 제목을 입력해 주세요.'); form.elements.title.focus(); return; }
+
+  const pickedWorks = form.workPicker?.selected || [];
+  if (form.dataset.form === 'item' && !form.dataset.iid && !pickedWorks.length && !form.querySelector('#work-manual')?.open) {
+    form.querySelector('#work-manual').open = true;
+    notify('검색 결과를 선택하거나 직접 입력한 뒤 추가해 주세요.');
+    return;
+  }
+  if (form.dataset.form === 'item' && !form.dataset.iid && pickedWorks.length) {
+    const work = pickedWorks[0], duplicate = getC()?.sections.some(section => section.items.some(item =>
+      item.catalogId && item.catalogId === work.catalogId || item.title === work.title && item.year === work.year && item.type === work.type));
+    if (duplicate) { notify('이미 이 컬렉션에 담긴 작품이에요.'); return; }
+  }
   let nextSelected = selectedId;
   const success = commit(() => {
     const c = getC();
@@ -583,7 +645,7 @@ document.addEventListener('submit', event => {
       if (edited) Object.assign(edited, values);
       else {
         if (db.collections.length >= 300) throw new Error('limit:컬렉션은 최대 300개까지 만들 수 있어요.');
-        const added = { id: uid(), ...values, sections: [{ id: uid(), title: '기본 목록', description: '', items: [] }] };
+        const added = { id: uid(), ...values, sections: [{ id: uid(), title: '기본 목록', description: '', items: pickedWorks.map(workToItem) }] };
         db.collections.push(added); nextSelected = added.id;
       }
     }
@@ -592,10 +654,17 @@ document.addEventListener('submit', event => {
       if (edited) Object.assign(edited, values); else { if (c.sections.length >= 300) throw new Error('limit:그룹은 컬렉션마다 최대 300개까지 만들 수 있어요.'); c.sections.push({ id: uid(), ...values, items: [] }); }
     }
     if (form.dataset.form === 'item' && c) {
-      const old = getG(c, form.dataset.oldSid), item = old?.items.find(i => i.id === form.dataset.iid), target = getG(c, data.section);
+      const old = getG(c, form.dataset.oldSid), item = old?.items.find(i => i.id === form.dataset.iid);
+      let target = getG(c, data.section);
+      if (!target && !c.sections.length && data.section === '__default__') { target = { id: uid(), title: '기본 목록', description: '', items: [] }; c.sections.push(target); }
       if (!target || (target.items.length >= 1500 && target !== old)) throw new Error('limit:그룹이 없거나 그룹당 최대 1,500편을 넘었어요.');
       const updated = { ...item, id: item?.id || uid(), title: clean(data.title, 160), type: TYPES.includes(data.type) ? data.type : '기타',
         year: data.year ? parseInt(data.year, 10) : null, status: data.watched === 'yes' ? 'done' : 'plan', posterUrl: safeUrl(data.posterUrl), wikiTitle: clean(data.wikiTitle, 160), note: clean(data.note, 900) };
+      if (pickedWorks[0]) Object.assign(updated, workMetadata(pickedWorks[0], updated));
+      else if (item?.catalogId && updated.title !== item.title) {
+        for (const name of ['catalogId', 'sourceUrl', 'posterSourceUrl', 'wikiSearch', 'sourceProvider', 'sourceLicense', 'sourceLicenseUrl']) delete updated[name];
+      }
+      if (!pickedWorks.length && item?.posterSourceUrl && updated.posterUrl !== item.posterUrl) updated.posterSourceUrl = '';
       const index = item ? old.items.findIndex(i => i.id === item.id) : -1;
       if (item) old.items.splice(index, 1);
       if (item && old === target) target.items.splice(index, 0, updated); else target.items.push(updated);
